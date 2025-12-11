@@ -114,7 +114,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const actorDynamicInstruction = selectedRule.actor.replace('{itemCount}', itemCount);
             const dmDynamicInstruction = selectedRule.dm.replace('{itemCount}', itemCount);
 
-            // 注入變數 (新增 money)
+            // --- 讀取天諭內容 ---
+            const oracleText = ui.getOracleText();
+            let oracleInstruction = "";
+            if (oracleText) {
+                oracleInstruction = `【天諭 (玩家強制干預)】：\n${oracleText}\n(請務必遵從此指示行動)`;
+            }
+
+            // --- 讀取法則內容 ---
+            const lawText = ui.getLawText();
+            let lawInstruction = "";
+            if (lawText) {
+                lawInstruction = `【法則 (世界絕對規則)】：\n${lawText}\n(無論邏輯，結局必須符合此描述)`;
+            }
+
+            // 注入變數 (oracle_instruction)
             let prompt1 = Config.aiConfig.PROMPT_ACTOR
                 .replace('{world_setting}', worldSetting)
                 .replace('{all_realms}', allRealmsList)
@@ -125,17 +139,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 .replace('{temp}', env.temp)
                 .replace('{inventory}', inventoryStr)
                 .replace('{personality}', personality)
-                .replace('{money}', state.money) // 注入金錢
-                .replace('{dynamic_instruction}', actorDynamicInstruction);
+                .replace('{money}', state.money)
+                .replace('{dynamic_instruction}', actorDynamicInstruction)
+                .replace('{oracle_instruction}', oracleInstruction);
             
             const actorResult = await callGeminiAPI(prompt1, apiKey);
             if (!actorResult) return;
+
+            // 清空天諭輸入框
+            ui.clearOracleText();
 
             currentRoundHTML = `
                 <div class="sc-section">
                     <div class="sc-title" style="color: #00bcd4;">角色意圖</div>
                     <div class="sc-actor-text">"${actorResult.thought}"</div>
                     <div class="sc-text">👉 ${actorResult.intention_description}</div>
+                    ${oracleText ? `<div class="sc-effect" style="color: #e91e63; border-color: #e91e63;">⚡ 天諭干涉：${oracleText}</div>` : ''}
                 </div>
                 <div class="sc-section">
                     <div class="sc-title" style="color: #e91e63;">AI 2 (天道) 推演中...</div>
@@ -161,7 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (usedItemsInfo.length > 0) { usedItemsDesc = usedItemsInfo.join("\n + "); }
             }
 
-            // 注入變數 (新增 money)
+            // 注入變數 (law_instruction)
             let prompt2 = Config.aiConfig.PROMPT_DM
                 .replace('{world_setting}', worldSetting)
                 .replace('{all_realms}', allRealmsList)
@@ -172,11 +191,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 .replace('{intention}', actorResult.intention_description)
                 .replace('{used_items_desc}', usedItemsDesc)
                 .replace('{word_limit}', wordLimit)
-                .replace('{money}', state.money) // 注入金錢
-                .replace('{dynamic_instruction}', dmDynamicInstruction);
+                .replace('{money}', state.money)
+                .replace('{dynamic_instruction}', dmDynamicInstruction)
+                .replace('{law_instruction}', lawInstruction); // 注入法則
 
             const dmResult = await callGeminiAPI(prompt2, apiKey);
             if (dmResult.error) throw new Error(dmResult.error);
+
+            // 清空法則輸入框
+            ui.clearLawText();
 
             const resultColor = dmResult.result_type === 'success' ? '#4caf50' : (dmResult.result_type === 'failure' ? '#f44336' : '#FFD700');
             
@@ -193,11 +216,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="sc-title" style="color: #00bcd4;">角色意圖</div>
                     <div class="sc-actor-text">"${actorResult.thought}"</div>
                     <div class="sc-text">👉 ${actorResult.intention_description}</div>
+                    ${oracleText ? `<div class="sc-effect" style="color: #e91e63; border-color: #e91e63;">⚡ 天諭干涉：${oracleText}</div>` : ''}
                 </div>
                 <div class="sc-section" style="border-left-color: ${resultColor}">
                     <div class="sc-title" style="color: ${resultColor};">天道裁決</div>
                     <div class="sc-text">${dmResult.story}</div>
                     ${dmResult.effect_summary ? `<div class="sc-effect">✨ ${dmResult.effect_summary}${moneyChangeMsg}</div>` : ''}
+                    ${lawText ? `<div class="sc-effect" style="color: #9C27B0; border-color: #9C27B0;">⚖️ 法則修正：${lawText}</div>` : ''}
                 </div>
             `;
             ui.updateStoryContent(currentRoundId, currentRoundHTML);
@@ -243,15 +268,12 @@ document.addEventListener('DOMContentLoaded', () => {
             let newItemsList = dmResult.new_items;
             if (!newItemsList && dmResult.new_item) { newItemsList = [dmResult.new_item]; }
 
-            // --- 優化物品生成邏輯 (增加對 Tags 格式的容錯) ---
             if (Array.isArray(newItemsList) && newItemsList.length > 0) {
                 newItemsList.forEach(itemData => {
-                    // 處理 Tags：如果是字串，嘗試分割；如果沒有，給預設值
                     let finalTags = [];
                     if (Array.isArray(itemData.tags)) {
                         finalTags = itemData.tags;
                     } else if (typeof itemData.tags === 'string') {
-                        // AI 有時會給 "食物, 垃圾" 這種字串
                         finalTags = itemData.tags.split(/[,，、]/).map(t => t.trim()).filter(t => t);
                     } else {
                         finalTags = ["雜物"];
@@ -262,8 +284,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         ...itemData, 
                         id: Date.now() + Math.floor(Math.random()*1000),
                         tags: finalTags,
-                        icon: itemData.icon || '📦', // 確保有 icon
-                        description: itemData.description || "這物品平平無奇，看似毫無用處。" // 確保有說明
+                        icon: itemData.icon || '📦', 
+                        description: itemData.description || "這物品平平無奇，看似毫無用處。"
                     };
                     
                     state.inventory.push(newItem);

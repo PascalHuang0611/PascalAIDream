@@ -46,7 +46,7 @@
         .item-slot:hover { border-color: #666; background-color: #2a2a2a; }
         .item-icon { font-size: 24px; }
 
-        /* 左側底部：資產顯示區 (移到這裡) */
+        /* 左側底部：資產顯示區 */
         #assets-footer { padding: 12px; background-color: #1a1a1a; border-top: 1px solid #333; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
         #money-display { color: #4caf50; font-family: 'Consolas', monospace; font-weight: bold; }
         #money-display.debt { color: #f44336; }
@@ -103,6 +103,25 @@
         #story-panel { width: 320px; height: 700px; border-color: #444; display: flex; flex-direction: column; }
         #story-header { padding: 15px; background: linear-gradient(180deg, #2a1a2a 0%, #1e1e1e 100%); border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center; }
         #story-header h3 { margin: 0; font-size: 16px; color: #e91e63; }
+        
+        .header-actions { display: flex; gap: 8px; }
+
+        /* 通用圓形小按鈕 */
+        .icon-btn { width: 24px; height: 24px; background: #333; border: 1px solid #555; color: #aaa; border-radius: 4px; cursor: pointer; font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; transition: all 0.2s; padding: 0; min-width: auto; }
+        
+        /* 天諭按鈕 */
+        #oracle-btn { border-color: #e91e63; color: #e91e63; }
+        #oracle-btn:hover { background: #e91e63; color: #fff; box-shadow: 0 0 8px rgba(233, 30, 99, 0.5); }
+        #oracle-btn.has-content { background: #e91e63; color: #fff; animation: pulse-glow-red 2s infinite; }
+        
+        /* 法則按鈕 */
+        #law-btn { border-color: #9C27B0; color: #9C27B0; }
+        #law-btn:hover { background: #9C27B0; color: #fff; box-shadow: 0 0 8px rgba(156, 39, 176, 0.5); }
+        #law-btn.has-content { background: #9C27B0; color: #fff; animation: pulse-glow-purple 2s infinite; }
+
+        @keyframes pulse-glow-red { 0% { box-shadow: 0 0 0 0 rgba(233, 30, 99, 0.7); } 70% { box-shadow: 0 0 0 5px rgba(233, 30, 99, 0); } 100% { box-shadow: 0 0 0 0 rgba(233, 30, 99, 0); } }
+        @keyframes pulse-glow-purple { 0% { box-shadow: 0 0 0 0 rgba(156, 39, 176, 0.7); } 70% { box-shadow: 0 0 0 5px rgba(156, 39, 176, 0); } 100% { box-shadow: 0 0 0 0 rgba(156, 39, 176, 0); } }
+
 
         #story-tabs-container { display: flex; background: #151515; overflow-x: auto; border-bottom: 1px solid #444; scrollbar-width: none; }
         #story-tabs-container::-webkit-scrollbar { display: none; }
@@ -135,7 +154,7 @@
         .exp-float { position: absolute; color: #FFD700; font-weight: bold; font-size: 18px; pointer-events: none; animation: float-up 1.2s forwards; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 5px rgba(0,0,0,0.8); z-index: 100; user-select: none; }
         @keyframes float-up { 0% { opacity: 1; transform: translateY(0) scale(1); } 50% { opacity: 1; transform: translateY(-30px) scale(1.1); } 100% { opacity: 0; transform: translateY(-60px) scale(0.9); } }
         
-        #gm-modal, #api-key-modal, #personality-modal, #world-setting-modal, #money-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        #gm-modal, #api-key-modal, #personality-modal, #world-setting-modal, #money-modal, #oracle-modal, #law-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
         .modal-content { background: #222; padding: 20px; border-radius: 10px; width: 300px; border: 1px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
         .modal-content h3 { margin-top: 0; color: #e91e63; }
         .form-group { margin-bottom: 12px; }
@@ -168,7 +187,7 @@
                 <div id="add-item-btn" title="[GM] 天道賜物">+</div>
             </div>
             <div id="inventory-grid"></div>
-            <!-- 新增：左側底部的資產區 -->
+            <!-- 左側底部的資產區 -->
             <div id="assets-footer">
                 <div>💰 資產: <span id="money-display">0</span> TWD</div>
                 <button id="edit-money-btn" title="[GM] 修改金額">✏️</button>
@@ -223,6 +242,12 @@
         <div id="story-panel" class="panel">
             <div id="story-header">
                 <h3>📜 天道劇本</h3>
+                <div class="header-actions">
+                    <!-- 天諭按鈕 -->
+                    <button id="oracle-btn" class="icon-btn" title="⚡ 天諭 (強制角色行為)">⚡</button>
+                    <!-- 法則按鈕 -->
+                    <button id="law-btn" class="icon-btn" title="⚖️ 法則 (強制世界規則)">⚖️</button>
+                </div>
             </div>
             
             <div id="story-tabs-container"></div>
@@ -254,8 +279,35 @@
 
     <div id="api-key-modal"><div class="modal-content"><h3>🔑 設定 Gemini API</h3><div class="form-group"><label>API Key</label><input type="password" id="gemini-api-key"></div><div class="modal-actions"><button class="btn-cancel" id="api-cancel-btn">取消</button><button class="btn-confirm" id="api-confirm-btn">確認</button></div></div></div>
 
-    <!-- 新增：金錢修改 Modal -->
     <div id="money-modal"><div class="modal-content"><h3>💰 財運修改 (GM)</h3><div class="form-group"><label>設定新金額</label><input type="number" id="money-input"></div><div class="modal-actions"><button class="btn-cancel" id="money-cancel-btn">取消</button><button class="btn-confirm" id="money-confirm-btn">確認</button></div></div></div>
+
+    <!-- 天諭 Modal -->
+    <div id="oracle-modal">
+        <div class="modal-content">
+            <h3>⚡ 降下天諭 (角色)</h3>
+            <div style="font-size: 12px; color: #888; margin-bottom: 8px;">強制角色執行的動作 (傳給 AI 1)。</div>
+            <div class="form-group">
+                <textarea id="oracle-input" placeholder="例如：去搭訕路邊的美女..." style="height: 100px;"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" id="oracle-close-btn">暫存並關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增：法則 Modal -->
+    <div id="law-modal">
+        <div class="modal-content">
+            <h3>⚖️ 修改法則 (世界)</h3>
+            <div style="font-size: 12px; color: #888; margin-bottom: 8px;">強制設定故事結果 (傳給 AI 2)。</div>
+            <div class="form-group">
+                <textarea id="law-input" placeholder="例如：美女一定會答應，而且還會倒貼..." style="height: 100px;"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" id="law-close-btn">暫存並關閉</button>
+            </div>
+        </div>
+    </div>
 
     <script src="game_settings.js"></script>
     <script src="ui_manager.js"></script>

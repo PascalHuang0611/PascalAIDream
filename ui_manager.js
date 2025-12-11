@@ -10,7 +10,7 @@
         weatherTemp: getEl('weather-temp'),
         realmName: getEl('realm-name'),
         
-        // 金錢 (更新)
+        // 金錢
         moneyDisplay: getEl('money-display'),
         editMoneyBtn: getEl('edit-money-btn'),
         moneyModal: getEl('money-modal'),
@@ -67,6 +67,17 @@
         worldCancelBtn: getEl('world-cancel-btn'),
         worldConfirmBtn: getEl('world-confirm-btn'),
 
+        // --- 天諭/法則系統 (新增) ---
+        oracleBtn: getEl('oracle-btn'),
+        oracleModal: getEl('oracle-modal'),
+        oracleInput: getEl('oracle-input'),
+        oracleCloseBtn: getEl('oracle-close-btn'),
+
+        lawBtn: getEl('law-btn'),
+        lawModal: getEl('law-modal'),
+        lawInput: getEl('law-input'),
+        lawCloseBtn: getEl('law-close-btn'),
+
         // --- 頁籤系統 ---
         storyTabsContainer: getEl('story-tabs-container'),
         storyContentContainer: getEl('story-content-container'),
@@ -79,6 +90,76 @@
     let onDeleteCallback = null;
     let roundCount = 0; 
     let activeTabId = null;
+
+    // --- 初始化天諭與法則系統 ---
+    (function setupInterventionSystem() {
+        // 天諭 (Oracle) - AI 1
+        if (UIElements.oracleBtn) {
+            UIElements.oracleBtn.addEventListener('click', () => {
+                UIElements.oracleModal.style.display = 'flex';
+            });
+            UIElements.oracleCloseBtn.addEventListener('click', () => {
+                UIElements.oracleModal.style.display = 'none';
+                checkBtnStatus(UIElements.oracleBtn, UIElements.oracleInput);
+            });
+            UIElements.oracleModal.addEventListener('click', (e) => {
+                if (e.target === UIElements.oracleModal) {
+                    UIElements.oracleModal.style.display = 'none';
+                    checkBtnStatus(UIElements.oracleBtn, UIElements.oracleInput);
+                }
+            });
+        }
+
+        // 法則 (Law) - AI 2
+        if (UIElements.lawBtn) {
+            UIElements.lawBtn.addEventListener('click', () => {
+                UIElements.lawModal.style.display = 'flex';
+            });
+            UIElements.lawCloseBtn.addEventListener('click', () => {
+                UIElements.lawModal.style.display = 'none';
+                checkBtnStatus(UIElements.lawBtn, UIElements.lawInput);
+            });
+            UIElements.lawModal.addEventListener('click', (e) => {
+                if (e.target === UIElements.lawModal) {
+                    UIElements.lawModal.style.display = 'none';
+                    checkBtnStatus(UIElements.lawBtn, UIElements.lawInput);
+                }
+            });
+        }
+    })();
+
+    function checkBtnStatus(btn, input) {
+        if (!btn || !input) return;
+        const hasContent = input.value.trim().length > 0;
+        if (hasContent) {
+            btn.classList.add('has-content');
+        } else {
+            btn.classList.remove('has-content');
+        }
+    }
+
+    function getOracleText() {
+        return UIElements.oracleInput ? UIElements.oracleInput.value.trim() : "";
+    }
+
+    function clearOracleText() {
+        if (UIElements.oracleInput) {
+            UIElements.oracleInput.value = "";
+            checkBtnStatus(UIElements.oracleBtn, UIElements.oracleInput);
+        }
+    }
+
+    function getLawText() {
+        return UIElements.lawInput ? UIElements.lawInput.value.trim() : "";
+    }
+
+    function clearLawText() {
+        if (UIElements.lawInput) {
+            UIElements.lawInput.value = "";
+            checkBtnStatus(UIElements.lawBtn, UIElements.lawInput);
+        }
+    }
+
 
     // --- 輔助函式 ---
     function translateWeatherCode(code) { const weatherMap = { 0: "晴天 ☀️", 1: "晴時多雲 🌤️", 2: "多雲 🌥️", 3: "陰天 ☁️", 45: "霧 🌫️", 48: "霧 🌫️", 51: "毛毛雨 💧", 53: "毛毛雨 💧", 61: "雨天 🌧️", 63: "大雨 🌧️", 80: "陣雨 🌦️", 95: "雷雨 ⛈️" }; return weatherMap[code] || "未知天氣"; }
@@ -101,7 +182,6 @@
         if (!UIElements.editMoneyBtn) return;
         
         UIElements.editMoneyBtn.addEventListener('click', () => {
-            // 抓取當前顯示的金額 (去掉文字部分)
             let currentVal = parseInt(UIElements.moneyDisplay.textContent);
             if (isNaN(currentVal)) currentVal = 0;
             UIElements.moneyInput.value = currentVal;
@@ -340,6 +420,8 @@
         setupPersonalityEditor, updatePersonalityUI,
         setupWorldSettingEditor, updateWorldSettingUI, 
         startNewStoryRound, updateStoryContent,
+        getOracleText, clearOracleText, 
+        getLawText, clearLawText, // 新增法則函式
         setupStoryLengthSlider, getStoryLength 
     };
 })(window);
