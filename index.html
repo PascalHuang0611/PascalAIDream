@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>職場修仙・AI 天道</title>
+    <style>
+        /* --- 基礎設定 --- */
+        body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-x: auto; /* 允許橫向捲動以防螢幕太窄 */
+        }
+
+        /* --- App 容器 (三欄佈局) --- */
+        #app-container {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        /* --- 通用面板樣式 --- */
+        .panel {
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            flex-shrink: 0; /* 防止被壓縮 */
+        }
+
+        /* --- 左側：乾坤袋 --- */
+        #inventory-panel { width: 260px; height: 500px; }
+        #inventory-header { padding: 15px; background: linear-gradient(180deg, #2a2a2a 0%, #1e1e1e 100%); border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        #inventory-header h3 { margin: 0; font-size: 16px; color: #FFD700; }
+        #add-item-btn { background: #333; border: 1px solid #555; color: #aaa; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 16px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+        #add-item-btn:hover { background: #444; color: #fff; }
+        #inventory-grid { padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; overflow-y: auto; flex-grow: 1; }
+        .item-slot { width: 50px; height: 50px; background-color: #252525; border: 1px solid #333; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: help; transition: all 0.2s; position: relative; user-select: none; }
+        .item-slot:hover { border-color: #666; background-color: #2a2a2a; }
+        .item-icon { font-size: 24px; }
+
+        /* --- 中間：修仙主視窗 --- */
+        #game-widget { width: 360px; height: 700px; }
+        #header-panel { padding: 15px; background: linear-gradient(180deg, #2a2a2a 0%, #1e1e1e 100%); border-bottom: 1px solid #333; text-align: center; font-size: 13px; color: #aaa; }
+        #weather-location { font-weight: bold; color: #fff; font-size: 15px; display: block; margin-bottom: 4px; }
+        .weather-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; background-color: #333; margin-top: 5px; color: #00bcd4; }
+        #visual-area { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; background: radial-gradient(circle at center, #252525 0%, #1e1e1e 70%); z-index: 0; }
+        .meditating-img { width: 150px; height: 150px; object-fit: contain; opacity: 0.9; filter: drop-shadow(0 0 10px rgba(0, 255, 255, 0.2)); transition: all 0.3s ease; cursor: pointer; border-radius: 50%; border: 2px solid transparent; z-index: 1; }
+        .meditating-img:hover { opacity: 1; border-color: #FFD700; transform: scale(1.05); }
+        .meditating-img.active { animation: breathe 4s infinite ease-in-out; }
+        @keyframes breathe { 0% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(0, 229, 255, 0.2)); } 50% { transform: scale(1.05); filter: drop-shadow(0 0 15px rgba(0, 229, 255, 0.5)); } 100% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(0, 229, 255, 0.2)); } }
+        .edit-hint { position: absolute; bottom: 10px; font-size: 12px; color: #666; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        #visual-area:hover .edit-hint { opacity: 1; }
+        #cultivation-info { padding: 20px; text-align: center; background-color: #1e1e1e; z-index: 2; }
+        #realm-name { font-size: 24px; font-weight: bold; color: #FFD700; margin: 0 0 10px 0; text-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
+        .progress-container { width: 100%; height: 6px; background-color: #333; border-radius: 3px; margin-bottom: 8px; overflow: hidden; }
+        .progress-bar { height: 100%; background: linear-gradient(90deg, #FFD700, #FFA000); width: 0%; transition: width 0.5s ease; }
+        .stats-text { font-size: 12px; color: #888; display: flex; justify-content: space-between; }
+        #narrative-log { height: 150px; background-color: #181818; border-top: 1px solid #333; padding: 10px; overflow-y: auto; font-size: 13px; line-height: 1.6; font-family: 'Consolas', 'Monaco', monospace; }
+        #narrative-log p { margin: 0 0 8px 0; padding-bottom: 8px; border-bottom: 1px dashed #333; color: #bbb; }
+        #narrative-log p:last-child { border-bottom: none; }
+        .log-time { color: #555; font-size: 11px; margin-right: 5px; }
+        
+        /* 修正後的 Controls (中間) */
+        #controls { padding: 15px; display: flex; gap: 10px; background-color: #1e1e1e; flex-wrap: wrap; }
+        
+        button { flex: 1; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.2s; font-size: 14px; min-width: 80px; }
+        #breakthrough-btn { background: #333; color: #777; cursor: not-allowed; }
+        #breakthrough-btn.ready { background: linear-gradient(135deg, #e53935 0%, #d32f2f 100%); color: white; cursor: pointer; box-shadow: 0 4px 10px rgba(211, 47, 47, 0.4); animation: pulse-red 2s infinite; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); } 100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); } }
+        
+        /* --- 右側：天道劇本 (Story Panel) --- */
+        #story-panel {
+            width: 320px;
+            height: 600px;
+            border-color: #444;
+        }
+        #story-header {
+            padding: 15px;
+            background: linear-gradient(180deg, #2a1a2a 0%, #1e1e1e 100%);
+            border-bottom: 1px solid #444;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #story-header h3 { margin: 0; font-size: 16px; color: #e91e63; }
+
+        #story-log {
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.6;
+            background-color: #1a1a1a;
+        }
+        
+        /* 新增：右側面板底部的控制區 */
+        #story-controls {
+            padding: 15px;
+            background-color: #1e1e1e;
+            border-top: 1px solid #333;
+        }
+
+        /* 故事段落樣式 */
+        .story-entry {
+            margin-bottom: 20px;
+            border-left: 2px solid #333;
+            padding-left: 10px;
+            animation: fadeIn 0.5s ease;
+        }
+        .story-title {
+            font-weight: bold;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .story-content {
+            color: #ccc;
+            text-align: justify;
+        }
+        .story-effect {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #FFD700;
+            background: rgba(255, 215, 0, 0.1);
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 按鈕區 */
+        #test-ai-btn { 
+            width: 100%; /* 讓它填滿右側底部 */
+            background: linear-gradient(135deg, #9C27B0 0%, #E91E63 100%); 
+            color: white; 
+            box-shadow: 0 4px 10px rgba(233, 30, 99, 0.3); 
+        }
+        #settings-btn { flex: 0 0 40px; background: #333; color: #aaa; }
+        
+        /* Tooltip */
+        .item-tooltip { position: absolute; background-color: rgba(0, 0, 0, 0.95); border: 1px solid #FFD700; padding: 10px; border-radius: 8px; width: 200px; z-index: 200; pointer-events: none; display: none; box-shadow: 0 5px 15px rgba(0,0,0,0.8); font-size: 13px; line-height: 1.4; }
+        .tooltip-title { font-weight: bold; color: #FFD700; margin-bottom: 4px; font-size: 14px; }
+        .tooltip-tags { font-size: 11px; color: #00bcd4; margin-bottom: 6px; }
+        .tooltip-desc { color: #ccc; font-style: italic; margin-bottom: 8px; }
+        .tooltip-delete-hint { color: #ff5252; font-size: 10px; border-top: 1px solid #444; padding-top: 4px; text-align: right; }
+        .rate-tooltip { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); padding: 8px; border-radius: 4px; font-size: 12px; pointer-events: none; display: none; z-index: 110; white-space: nowrap; border: 1px solid #444; }
+        #visual-area:hover .rate-tooltip { display: block; }
+
+        /* GM Modal & API Modal */
+        #gm-modal, #api-key-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: #222; padding: 20px; border-radius: 10px; width: 300px; border: 1px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
+        .modal-content h3 { margin-top: 0; color: #e91e63; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; color: #888; font-size: 12px; margin-bottom: 4px; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; background: #333; border: 1px solid #444; color: #e0e0e0; padding: 8px; border-radius: 4px; box-sizing: border-box; }
+        .form-group textarea { height: 80px; resize: vertical; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px; }
+        .btn-cancel { background: transparent; border: 1px solid #555; color: #aaa; }
+        .btn-confirm { background: #e91e63; border: none; color: white; }
+        
+        /* 經驗值飄字 */
+        .exp-float { position: absolute; color: #FFD700; font-weight: bold; font-size: 18px; pointer-events: none; animation: float-up 1.2s forwards; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 5px rgba(0,0,0,0.8); z-index: 100; user-select: none; }
+        @keyframes float-up { 0% { opacity: 1; transform: translateY(0) scale(1); } 50% { opacity: 1; transform: translateY(-30px) scale(1.1); } 100% { opacity: 0; transform: translateY(-60px) scale(0.9); } }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #181818; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <!-- 左側：乾坤袋 -->
+        <div id="inventory-panel" class="panel">
+            <div id="inventory-header">
+                <h3>📦 乾坤袋</h3>
+                <div id="add-item-btn" title="[GM] 天道賜物">+</div>
+            </div>
+            <div id="inventory-grid"></div>
+        </div>
+
+        <!-- 物品 Tooltip -->
+        <div id="item-tooltip" class="item-tooltip">
+            <div class="tooltip-title"></div>
+            <div class="tooltip-tags"></div>
+            <div class="tooltip-desc"></div>
+            <div class="tooltip-delete-hint">[GM] 右鍵可刪除物品</div>
+        </div>
+
+        <!-- 中間：修仙主視窗 (還原為純數值) -->
+        <div id="game-widget" class="panel">
+            <div id="header-panel">
+                <span id="weather-location">定位中...</span>
+                <div class="weather-badge">
+                    <span id="weather-condition">--</span> <span id="weather-temp">--</span>°C
+                </div>
+            </div>
+
+            <div id="visual-area">
+                <img id="player-img" src="https://api.iconify.design/game-icons:meditation.svg?color=%23888888" alt="Meditating" class="meditating-img active" title="點擊更換你的修仙形象">
+                <input type="file" id="player-img-upload" accept="image/*" style="display: none;">
+                <div class="edit-hint">(點擊圖片可更換)</div>
+                <div class="rate-tooltip" id="rate-details">基礎: +1.0</div>
+            </div>
+
+            <div id="cultivation-info">
+                <h2 id="realm-name">煉氣期 前期</h2>
+                <div class="progress-container"><div id="exp-bar" class="progress-bar"></div></div>
+                <div class="stats-text">
+                    <span>修為: <span id="exp-current">0</span> / <span id="exp-max">100</span></span>
+                    <span>速度: <span id="exp-rate">1.0</span> /秒</span>
+                </div>
+            </div>
+
+            <!-- 系統日誌 -->
+            <div id="narrative-log"><p><span class="log-time">12:00</span> 系統啟動，開始感應天地靈氣...</p></div>
+
+            <!-- 控制區：移除了測試按鈕，只保留修練與設定 -->
+            <div id="controls">
+                <button id="breakthrough-btn">修練中...</button>
+                <button id="settings-btn" title="設定">⚙️</button>
+            </div>
+        </div>
+
+        <!-- 右側：天道劇本 -->
+        <div id="story-panel" class="panel">
+            <div id="story-header">
+                <h3>📜 天道劇本</h3>
+            </div>
+            <div id="story-log">
+                <!-- AI 生成的故事會顯示在這裡 -->
+                <div class="story-entry">
+                    <div class="story-title">天道記錄</div>
+                    <div class="story-content">尚未連結天道，請點擊下方按鈕進行測試...</div>
+                </div>
+            </div>
+            <!-- 新增：右側底部控制區 -->
+            <div id="story-controls">
+                <button id="test-ai-btn">🔮 測試 AI 天道</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GM Modal -->
+    <div id="gm-modal">
+        <div class="modal-content">
+            <h3>🌩️ 天道賜物 (GM)</h3>
+            <div class="form-group"><label>物品名稱</label><input type="text" id="gm-item-name"></div>
+            <div class="form-group"><label>圖示</label><input type="text" id="gm-item-icon" value="📦"></div>
+            <div class="form-group"><label>標籤</label><input type="text" id="gm-item-tags"></div>
+            <div class="form-group"><label>描述</label><textarea id="gm-item-desc"></textarea></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" id="gm-cancel-btn">取消</button>
+                <button class="btn-confirm" id="gm-confirm-btn">賜予</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Key Modal -->
+    <div id="api-key-modal">
+        <div class="modal-content">
+            <h3>🔑 設定 Gemini API</h3>
+            <div class="form-group">
+                <label>請輸入 Google Gemini API Key</label>
+                <input type="password" id="gemini-api-key" placeholder="AIzaSy...">
+            </div>
+            <div class="form-group">
+                <label style="color: #666; font-size: 11px;">Key 僅暫存於記憶體，重新整理後需重填。</label>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" id="api-cancel-btn">取消</button>
+                <button class="btn-confirm" id="api-confirm-btn">確認</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="game_settings.js"></script>
+    <script src="ui_manager.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
