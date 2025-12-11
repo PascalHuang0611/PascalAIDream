@@ -73,7 +73,7 @@
         #narrative-log p:last-child { border-bottom: none; }
         .log-time { color: #555; font-size: 11px; margin-right: 5px; }
         
-        /* 修正後的 Controls (中間) */
+        /* Controls (中間) */
         #controls { padding: 15px; display: flex; gap: 10px; background-color: #1e1e1e; flex-wrap: wrap; }
         
         button { flex: 1; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.2s; font-size: 14px; min-width: 80px; }
@@ -84,7 +84,7 @@
         /* --- 右側：天道劇本 (Story Panel) --- */
         #story-panel {
             width: 320px;
-            height: 600px;
+            height: 700px; /* 修正：從 600px 改為 700px，與中間主框對齊 */
             border-color: #444;
         }
         #story-header {
@@ -106,7 +106,7 @@
             background-color: #1a1a1a;
         }
         
-        /* 新增：右側面板底部的控制區 */
+        /* 右側面板底部的控制區 */
         #story-controls {
             padding: 15px;
             background-color: #1e1e1e;
@@ -253,7 +253,7 @@
                     <div class="story-content">尚未連結天道，請點擊下方按鈕進行測試...</div>
                 </div>
             </div>
-            <!-- 新增：右側底部控制區 -->
+            <!-- 右側底部控制區 -->
             <div id="story-controls">
                 <button id="test-ai-btn">🔮 測試 AI 天道</button>
             </div>

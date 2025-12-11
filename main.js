@@ -26,7 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
         exp: 0,                  
         isAwaitingTribulation: false,
         playerImageData: null,
-        inventory: [] 
+        inventory: [],
+        storyHistory: [] // 新增：故事歷史紀錄 (字串陣列)
     };
 
     let env = {
@@ -59,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             
             if (!data.candidates || data.candidates.length === 0) {
-                throw new Error("AI 內容被安全過濾器攔截，請嘗試較為溫和的劇情。");
+                throw new Error("AI 內容被安全過濾器攔截。");
             }
 
             let text = data.candidates[0].content.parts[0].text;
@@ -77,7 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 雙 AI 迴圈邏輯 ---
     async function triggerAIDualLoop(apiKey) {
-        // 1. 鎖定按鈕
         ui.setAITestingState(true);
 
         try {
@@ -85,14 +85,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const weatherStr = `${ui.translateWeatherCode(env.weatherCode)} (濕度${env.humidity}%)`;
             const inventoryStr = state.inventory.map(i => `- [ID:${i.id}] ${i.name} (${i.tags.join(',')})`).join('\n') || "背包空空如也";
             const personality = "貪財好色，但又極度怕死";
-            
-            // 境界列表字串
             const allRealmsList = [...new Set(Config.cultivationData.map(d => d.realmName))].join(' > ');
 
-            ui.addStory("AI 1 (演員) 思考中...", "正在根據環境與背包決定行動...", null, "#00bcd4");
+            // 1. 準備歷史紀錄字串 (取最後 5 筆)
+            const historyStr = state.storyHistory.slice(-5).map((s, i) => `${i+1}. ${s}`).join('\n') || "無近期記憶";
 
+            ui.addStory("AI 1 (演員) 思考中...", "正在回憶過往並決定行動...", null, "#00bcd4");
+
+            // 2. AI 1 Prompt
             let prompt1 = Config.aiConfig.PROMPT_ACTOR
                 .replace('{all_realms}', allRealmsList)
+                .replace('{story_history}', historyStr) // 注入記憶
                 .replace('{realm}', currentRealm)
                 .replace('{location}', env.locationName)
                 .replace('{weather}', weatherStr)
@@ -101,61 +104,83 @@ document.addEventListener('DOMContentLoaded', () => {
                 .replace('{personality}', personality);
 
             const actorResult = await callGeminiAPI(prompt1, apiKey);
-            if (!actorResult) return; // 錯誤已在 callGeminiAPI 處理，直接返回
+            if (!actorResult) return;
 
-            console.log("AI 1 Output:", actorResult);
             ui.addStory("角色意圖", actorResult.thought, null, "#aaa");
 
-            let usedItemName = "無";
-            let usedItemDesc = "空手";
-            let usedItemId = null;
+            // 3. 處理使用的物品 (支援複數)
+            let usedItemsDesc = "空手";
+            let usedItemIds = []; // 記錄所有被使用的 ID
 
-            if (actorResult.target_item_id) {
-                const item = state.inventory.find(i => i.id == actorResult.target_item_id);
-                if (item) {
-                    usedItemName = item.name;
-                    usedItemDesc = item.description;
-                    usedItemId = item.id;
+            // 相容性處理：支援 target_item_ids (array) 或 target_item_id (single)
+            let targetIds = actorResult.target_item_ids;
+            if (!targetIds && actorResult.target_item_id) {
+                targetIds = [actorResult.target_item_id];
+            }
+
+            if (Array.isArray(targetIds) && targetIds.length > 0) {
+                const usedItems = [];
+                targetIds.forEach(tid => {
+                    const item = state.inventory.find(i => i.id == tid);
+                    if (item) {
+                        usedItems.push(`${item.name}`);
+                        usedItemIds.push(item.id);
+                    }
+                });
+                if (usedItems.length > 0) {
+                    usedItemsDesc = usedItems.join(" + ");
                 }
             }
 
             ui.addStory("AI 2 (天道) 推演中...", `玩家試圖：${actorResult.intention_description}`, null, "#e91e63");
 
+            // 4. AI 2 Prompt
             let prompt2 = Config.aiConfig.PROMPT_DM
                 .replace('{all_realms}', allRealmsList)
+                .replace('{story_history}', historyStr) // 注入記憶
                 .replace('{realm}', currentRealm)
                 .replace('{weather}', weatherStr)
                 .replace('{location}', env.locationName)
                 .replace('{intention}', actorResult.intention_description)
-                .replace('{item_name}', usedItemName)
-                .replace('{item_desc}', usedItemDesc);
+                .replace('{used_items_desc}', usedItemsDesc); // 傳入組合名稱
 
             const dmResult = await callGeminiAPI(prompt2, apiKey);
             if (!dmResult) return;
 
-            console.log("AI 2 Output:", dmResult);
-
             const color = dmResult.result_type === 'success' ? '#4caf50' : (dmResult.result_type === 'failure' ? '#f44336' : '#FFD700');
-            
             ui.addStory("天道裁決", dmResult.story, dmResult.effect_summary, color);
 
-            // 處理物品變動
-            let inventoryChanged = false;
+            // 5. 更新歷史紀錄
+            state.storyHistory.push(dmResult.story);
+            if (state.storyHistory.length > 5) state.storyHistory.shift(); // 保持 5 筆
 
-            if (dmResult.new_item) {
-                const newItem = { ...dmResult.new_item, id: Date.now() };
-                if (!Array.isArray(newItem.tags)) newItem.tags = ["未知"];
-                state.inventory.push(newItem);
-                inventoryChanged = true;
-                ui.addLog(`獲得物品：${newItem.name}`, "#FFD700");
-                ui.addStory("獲得物品", `你獲得了 [${newItem.name}]！`, null, "#FFD700");
+            // 6. 處理物品變動 (獲得)
+            let inventoryChanged = false;
+            
+            // 相容性處理：支援 new_items (array) 或 new_item (single)
+            let newItemsList = dmResult.new_items;
+            if (!newItemsList && dmResult.new_item) {
+                newItemsList = [dmResult.new_item];
             }
 
-            if (dmResult.remove_used_item && usedItemId) {
-                state.inventory = state.inventory.filter(item => item.id !== usedItemId);
+            if (Array.isArray(newItemsList) && newItemsList.length > 0) {
+                newItemsList.forEach(itemData => {
+                    const newItem = { ...itemData, id: Date.now() + Math.floor(Math.random()*1000) }; // 避免 ID 重複
+                    if (!Array.isArray(newItem.tags)) newItem.tags = ["未知"];
+                    state.inventory.push(newItem);
+                    ui.addLog(`獲得物品：${newItem.name}`, "#FFD700");
+                });
+                ui.addStory("獲得物品", `你獲得了 ${newItemsList.length} 件物品！`, null, "#FFD700");
                 inventoryChanged = true;
-                ui.addLog(`失去物品：${usedItemName}`, "#f44336");
-                ui.addStory("失去物品", `[${usedItemName}] 已損壞或消失。`, null, "#f44336");
+            }
+
+            // 7. 處理物品變動 (失去 - 移除所有本次使用的物品)
+            // 支援 remove_used_items (boolean) 或 remove_used_item (boolean)
+            if ((dmResult.remove_used_items || dmResult.remove_used_item) && usedItemIds.length > 0) {
+                state.inventory = state.inventory.filter(item => !usedItemIds.includes(item.id));
+                inventoryChanged = true;
+                ui.addLog(`失去物品：${usedItemsDesc}`, "#f44336");
+                ui.addStory("失去物品", `[${usedItemsDesc}] 已損壞或消失。`, null, "#f44336");
             }
 
             if (inventoryChanged) {
@@ -167,7 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Logic Error:", e);
             ui.addStory("系統錯誤", "推演邏輯發生未知錯誤", null, "#f44336");
         } finally {
-            // 2. 解鎖按鈕 (無論成功失敗都會執行)
             ui.setAITestingState(false);
         }
     }
@@ -269,6 +293,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const parsed = JSON.parse(saved);
                 state = { ...state, ...parsed };
                 if (!Array.isArray(state.inventory)) state.inventory = [];
+                // 確保 history 是陣列
+                if (!Array.isArray(state.storyHistory)) state.storyHistory = [];
+                
                 if (state.levelIndex >= Config.cultivationData.length) { state.levelIndex = 0; state.exp = 0; ui.addLog("存檔過舊重置。", "orange"); }
                 if (state.playerImageData) ui.updatePlayerImage(state.playerImageData);
                 ui.addLog("讀取修仙進度成功。");
