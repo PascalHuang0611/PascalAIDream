@@ -243,10 +243,29 @@ document.addEventListener('DOMContentLoaded', () => {
             let newItemsList = dmResult.new_items;
             if (!newItemsList && dmResult.new_item) { newItemsList = [dmResult.new_item]; }
 
+            // --- 優化物品生成邏輯 (增加對 Tags 格式的容錯) ---
             if (Array.isArray(newItemsList) && newItemsList.length > 0) {
                 newItemsList.forEach(itemData => {
-                    const newItem = { ...itemData, id: Date.now() + Math.floor(Math.random()*1000) };
-                    if (!Array.isArray(newItem.tags)) newItem.tags = ["未知"];
+                    // 處理 Tags：如果是字串，嘗試分割；如果沒有，給預設值
+                    let finalTags = [];
+                    if (Array.isArray(itemData.tags)) {
+                        finalTags = itemData.tags;
+                    } else if (typeof itemData.tags === 'string') {
+                        // AI 有時會給 "食物, 垃圾" 這種字串
+                        finalTags = itemData.tags.split(/[,，、]/).map(t => t.trim()).filter(t => t);
+                    } else {
+                        finalTags = ["雜物"];
+                    }
+                    if (finalTags.length === 0) finalTags = ["未知"];
+
+                    const newItem = { 
+                        ...itemData, 
+                        id: Date.now() + Math.floor(Math.random()*1000),
+                        tags: finalTags,
+                        icon: itemData.icon || '📦', // 確保有 icon
+                        description: itemData.description || "這物品平平無奇，看似毫無用處。" // 確保有說明
+                    };
+                    
                     state.inventory.push(newItem);
                     ui.addLog(`獲得物品：${newItem.name}`, "#FFD700");
                 });
