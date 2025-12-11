@@ -74,6 +74,17 @@
         });
     })();
 
+    // --- 新增：性格列表 ---
+    const PERSONALITIES = [
+        "貪財好色，但又極度怕死",
+        "正義感爆棚的熱血笨蛋",
+        "深思熟慮，不做沒有把握的事",
+        "性格孤僻，只對修練感興趣",
+        "滑頭滑腦，擅長見風轉舵",
+        "慈悲為懷，連螞蟻都不忍心踩死",
+        "腹黑心機，為了變強不擇手段"
+    ];
+
     // --- 新增：AI 提示詞設定 ---
     const AI_CONFIG = {
         model_name: "gemini-2.5-flash", 
@@ -104,10 +115,10 @@
 
 【JSON 格式範例】
 {
-  "thought": "剛剛被雷劈了有點痛，看著手裡的鐵劍和回復藥，我想先喝藥再用劍引雷。",
-  "target_item_ids": [123456, 789012], // 想要使用的物品 ID 列表 (可多個，若不使用則填 [])
+  "thought": "看到下雨了，我想試試看能不能用這把傘吸收水靈氣。",
+  "target_item_ids": [123456, 789012], 
   "action_type": "use_item",
-  "intention_description": "喝下過期牛奶，並揮舞斷劍試圖驅趕野狗"
+  "intention_description": "拿出斷掉的鐵劍，試圖引導雷電淬體"
 }
 `,
         // AI 2: 天道 (決定發生什麼事)
@@ -133,13 +144,17 @@
 3. **物品變動判定**：
    - 【獲得物品】：支援一次獲得多個。請在 "new_items" 陣列中填寫。
    - 【失去物品】：若玩家使用的物品損壞、遺失或消耗，請將 "remove_used_items" 設為 true。
-4. 請回傳 JSON 格式。
+4. **修為變動判定**：
+   - 若故事涉及修練、頓悟、受傷或心魔，可透過 "exp_change_percentage" 調整修為。
+   - 數值為百分比整數 (例如 10 代表增加當前升級所需經驗的 10%，-5 代表扣除 5%)。
+   - 若無變動則填 0 或省略。
+5. 請回傳 JSON 格式。
 
 【JSON 格式範例】
 {
   "story": "你試圖同時使用火符和汽油，結果引發了連鎖爆炸，雖然灰頭土臉，但意外炸出了一個前輩遺留的保險箱。",
-  "result_type": "success", // success, failure, neutral
-  "effect_summary": "獲得神秘保險箱，失去火符、汽油",
+  "result_type": "success",
+  "effect_summary": "獲得神秘保險箱，失去火符、汽油，修為大增",
   "new_items": [
       { 
           "name": "神秘保險箱", 
@@ -148,7 +163,8 @@
           "description": "不知道密碼，搖起來有匡噹聲。" 
       }
   ],
-  "remove_used_items": true // 是否移除本次使用的所有物品
+  "remove_used_items": true,
+  "exp_change_percentage": 10
 }
 `
     };
@@ -157,6 +173,7 @@
         BASE_SETTINGS,
         TRIBULATION_SETTINGS,
         CULTIVATION_DATA,
+        PERSONALITIES,
         AI_CONFIG // Export
     };
 

@@ -24,18 +24,22 @@
         gmModal: document.getElementById('gm-modal'),
         gmCancelBtn: document.getElementById('gm-cancel-btn'),
         gmConfirmBtn: document.getElementById('gm-confirm-btn'),
-        gmInputs: {
-            name: document.getElementById('gm-item-name'),
-            icon: document.getElementById('gm-item-icon'),
-            tags: document.getElementById('gm-item-tags'),
-            desc: document.getElementById('gm-item-desc')
-        },
+        gmInputs: { name: document.getElementById('gm-item-name'), icon: document.getElementById('gm-item-icon'), tags: document.getElementById('gm-item-tags'), desc: document.getElementById('gm-item-desc') },
         testAIBtn: document.getElementById('test-ai-btn'),
         apiKeyModal: document.getElementById('api-key-modal'),
         apiCancelBtn: document.getElementById('api-cancel-btn'),
         apiConfirmBtn: document.getElementById('api-confirm-btn'),
         apiKeyInput: document.getElementById('gemini-api-key'),
-        storyLog: document.getElementById('story-log')
+        storyLog: document.getElementById('story-log'),
+
+        // --- 新增：性格相關 ---
+        personalityRow: document.getElementById('personality-row'),
+        currentPersonality: document.getElementById('current-personality'),
+        personalityModal: document.getElementById('personality-modal'),
+        persInput: document.getElementById('personality-input'),
+        presetTagsContainer: document.getElementById('preset-tags'),
+        persCancelBtn: document.getElementById('pers-cancel-btn'),
+        persConfirmBtn: document.getElementById('pers-confirm-btn')
     };
 
     let onDeleteCallback = null;
@@ -68,7 +72,49 @@
         }
     }
 
-    // ... (保留物品欄更新) ...
+    // --- 新增：更新性格顯示 ---
+    function updatePersonalityUI(personalityText) {
+        UIElements.currentPersonality.textContent = personalityText;
+    }
+
+    // --- 新增：設定性格編輯器 ---
+    function setupPersonalityEditor(onUpdatePersonality) {
+        // 1. 綁定開啟 Modal
+        UIElements.personalityRow.addEventListener('click', () => {
+            // 填入當前值
+            UIElements.persInput.value = UIElements.currentPersonality.textContent;
+            UIElements.personalityModal.style.display = 'flex';
+        });
+
+        // 2. 生成預設標籤按鈕
+        const presets = window.GameSettings.PERSONALITIES || [];
+        UIElements.presetTagsContainer.innerHTML = '';
+        presets.forEach(p => {
+            const tag = document.createElement('span');
+            tag.className = 'preset-tag';
+            tag.textContent = p;
+            tag.addEventListener('click', () => {
+                UIElements.persInput.value = p; // 點擊自動填入
+            });
+            UIElements.presetTagsContainer.appendChild(tag);
+        });
+
+        // 3. 綁定關閉與確認
+        UIElements.persCancelBtn.addEventListener('click', () => {
+            UIElements.personalityModal.style.display = 'none';
+        });
+
+        UIElements.persConfirmBtn.addEventListener('click', () => {
+            const newPersonality = UIElements.persInput.value.trim();
+            if (newPersonality) {
+                onUpdatePersonality(newPersonality);
+                UIElements.personalityModal.style.display = 'none';
+                addLog(`心性轉變：${newPersonality}`, "#00bcd4");
+            }
+        });
+    }
+
+    // ... (保留 updateInventoryUI, setupGMTools) ...
     function updateInventoryUI(inventory) {
         UIElements.inventoryGrid.innerHTML = '';
         const totalSlots = 16;
@@ -104,7 +150,6 @@
     }
     function hideItemTooltip() { UIElements.itemTooltip.style.display = 'none'; }
 
-    // ... (保留 GM 工具) ...
     function setupGMTools(onAddItem, onDeleteItem) {
         onDeleteCallback = onDeleteItem;
         UIElements.addItemBtn.addEventListener('click', () => { UIElements.gmModal.style.display = 'flex'; });
@@ -121,47 +166,21 @@
     }
     function clearGMInputs() { UIElements.gmInputs.name.value = ''; UIElements.gmInputs.icon.value = '📦'; UIElements.gmInputs.tags.value = ''; UIElements.gmInputs.desc.value = ''; }
 
-    // ... (保留 AI 測試設置) ...
+    // ... (保留 setupAITesting, setAITestingState, setupPlayerImageHandler, addLog, addStory, showFloatingExp) ...
     function setupAITesting(onTriggerAI) {
         let cachedKey = '';
-        UIElements.testAIBtn.addEventListener('click', () => {
-            if (cachedKey) { onTriggerAI(cachedKey); } else { UIElements.apiKeyModal.style.display = 'flex'; }
-        });
+        UIElements.testAIBtn.addEventListener('click', () => { if (cachedKey) { onTriggerAI(cachedKey); } else { UIElements.apiKeyModal.style.display = 'flex'; } });
         UIElements.apiCancelBtn.addEventListener('click', () => { UIElements.apiKeyModal.style.display = 'none'; });
-        UIElements.apiConfirmBtn.addEventListener('click', () => {
-            const key = UIElements.apiKeyInput.value.trim();
-            if (key) { cachedKey = key; UIElements.apiKeyModal.style.display = 'none'; onTriggerAI(cachedKey); } else { alert("請輸入 API Key"); }
-        });
+        UIElements.apiConfirmBtn.addEventListener('click', () => { const key = UIElements.apiKeyInput.value.trim(); if (key) { cachedKey = key; UIElements.apiKeyModal.style.display = 'none'; onTriggerAI(cachedKey); } else { alert("請輸入 API Key"); } });
     }
-
-    // --- 新增：設定 AI 測試按鈕狀態 (Loading 鎖定) ---
     function setAITestingState(isLoading) {
         const btn = UIElements.testAIBtn;
-        if (isLoading) {
-            btn.disabled = true;
-            btn.textContent = "☁️ 天道推演中...";
-            btn.style.opacity = "0.6"; // 變灰半透明
-            btn.style.cursor = "not-allowed";
-        } else {
-            btn.disabled = false;
-            btn.textContent = "🔮 測試 AI 天道";
-            btn.style.opacity = "1";
-            btn.style.cursor = "pointer";
-        }
+        if (isLoading) { btn.disabled = true; btn.textContent = "☁️ 天道推演中..."; btn.style.opacity = "0.6"; btn.style.cursor = "not-allowed"; } 
+        else { btn.disabled = false; btn.textContent = "🔮 測試 AI 天道"; btn.style.opacity = "1"; btn.style.cursor = "pointer"; }
     }
-    // ------------------------------------------------
-
-    // ... (保留圖片與日誌) ...
     function setupPlayerImageHandler(onImageChanged) {
         UIElements.playerImg.addEventListener('click', () => { UIElements.playerImgInput.click(); });
-        UIElements.playerImgInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(event) { const base64String = event.target.result; updatePlayerImage(base64String); if (onImageChanged) onImageChanged(base64String); };
-                reader.readAsDataURL(file);
-            }
-        });
+        UIElements.playerImgInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = function(event) { const base64String = event.target.result; updatePlayerImage(base64String); if (onImageChanged) onImageChanged(base64String); }; reader.readAsDataURL(file); } });
     }
     function updatePlayerImage(base64String) { if (base64String) { UIElements.playerImg.src = base64String; } }
     function addLog(text, color = '#bbb') {
@@ -172,15 +191,11 @@
         UIElements.narrativeLog.scrollTop = UIElements.narrativeLog.scrollHeight;
         if (UIElements.narrativeLog.children.length > 50) UIElements.narrativeLog.removeChild(UIElements.narrativeLog.firstChild);
     }
-    
     function addStory(title, content, effect = null, color = '#ccc') {
         const entry = document.createElement('div');
         entry.className = 'story-entry';
         const time = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
-        let html = `
-            <div class="story-title"><span>${title}</span><span>${time}</span></div>
-            <div class="story-content" style="color: ${color}">${content}</div>
-        `;
+        let html = `<div class="story-title"><span>${title}</span><span>${time}</span></div><div class="story-content" style="color: ${color}">${content}</div>`;
         if (effect) { html += `<div class="story-effect">✨ ${effect}</div>`; }
         entry.innerHTML = html;
         if (title.includes("思考")) { entry.style.borderLeftColor = "#00bcd4"; } else { entry.style.borderLeftColor = color === '#f44336' ? '#f44336' : '#FFD700'; }
@@ -188,7 +203,6 @@
         UIElements.storyLog.scrollTop = UIElements.storyLog.scrollHeight;
         if (UIElements.storyLog.children.length > 20) { UIElements.storyLog.removeChild(UIElements.storyLog.firstChild); }
     }
-
     function showFloatingExp(amount) {
         const el = document.createElement('div');
         el.className = 'exp-float';
@@ -200,7 +214,7 @@
 
     window.UIManager = {
         UIElements, translateWeatherCode, updateWeatherUI, updateCultivationUI, updateInventoryUI, setupGMTools, 
-        setupAITesting, setAITestingState, // Export new function
-        addLog, addStory, showFloatingExp, setupPlayerImageHandler, updatePlayerImage
+        setupAITesting, setAITestingState, setupPlayerImageHandler, updatePlayerImage, addLog, addStory, showFloatingExp,
+        setupPersonalityEditor, updatePersonalityUI // Export
     };
 })(window);
