@@ -40,6 +40,7 @@
         apiConfirmBtn: getEl('api-confirm-btn'),
         apiKeyInput: getEl('gemini-api-key'),
         
+        // --- 性格編輯器 ---
         personalityRow: getEl('personality-row'),
         currentPersonality: getEl('current-personality'),
         personalityModal: getEl('personality-modal'),
@@ -47,6 +48,15 @@
         presetTagsContainer: getEl('preset-tags'),
         persCancelBtn: getEl('pers-cancel-btn'),
         persConfirmBtn: getEl('pers-confirm-btn'),
+
+        // --- 世界觀編輯器 (新增) ---
+        worldSettingRow: getEl('world-setting-row'),
+        currentWorldSetting: getEl('current-world-setting'),
+        worldSettingModal: getEl('world-setting-modal'),
+        worldInput: getEl('world-input'),
+        worldPresetTagsContainer: getEl('world-preset-tags'),
+        worldCancelBtn: getEl('world-cancel-btn'),
+        worldConfirmBtn: getEl('world-confirm-btn'),
 
         // --- 頁籤系統 ---
         storyTabsContainer: getEl('story-tabs-container'),
@@ -91,7 +101,6 @@
 
     // --- 開啟新一輪故事 (頁籤) ---
     function startNewStoryRound() {
-        // 安全檢查，如果找不到容器就重新抓取
         if (!UIElements.storyTabsContainer || !UIElements.storyContentContainer) {
             UIElements.storyTabsContainer = document.getElementById('story-tabs-container');
             UIElements.storyContentContainer = document.getElementById('story-content-container');
@@ -101,12 +110,10 @@
         roundCount++;
         const tabId = `round-${roundCount}`;
         
-        // [關鍵修正] 如果是第一回，清空容器以移除初始提示文字
         if (roundCount === 1) {
             UIElements.storyContentContainer.innerHTML = '';
         }
 
-        // 1. 移除舊內容 (如果超過 5 個)
         const allTabs = UIElements.storyTabsContainer.querySelectorAll('.story-tab');
         if (allTabs.length >= 5) {
             const firstTab = allTabs[0];
@@ -115,7 +122,6 @@
             if (firstContent) firstContent.remove();
         }
 
-        // 2. 建立新頁籤按鈕
         const tabBtn = document.createElement('div');
         tabBtn.className = 'story-tab active'; 
         tabBtn.textContent = `第 ${roundCount} 回`;
@@ -123,14 +129,12 @@
         tabBtn.addEventListener('click', () => switchStoryTab(tabId));
         UIElements.storyTabsContainer.appendChild(tabBtn);
 
-        // 3. 建立新內容區塊
         const contentDiv = document.createElement('div');
         contentDiv.id = tabId;
         contentDiv.className = 'story-cycle-content active';
         contentDiv.innerHTML = `<div class="sc-section"><div class="sc-title loading-dots">天道推演中</div></div>`;
         UIElements.storyContentContainer.appendChild(contentDiv);
 
-        // 4. 切換到新頁籤
         switchStoryTab(tabId);
         UIElements.storyTabsContainer.scrollLeft = UIElements.storyTabsContainer.scrollWidth;
 
@@ -155,7 +159,6 @@
         }
     }
 
-    // 兼容舊版 addStory
     function addStory(title, content, effect = null, color = '#ccc') {
         const time = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
         let html = `
@@ -190,7 +193,7 @@
         return UIElements.storyLengthSlider ? parseInt(UIElements.storyLengthSlider.value) : 100;
     }
 
-    // ... (其他函式保持不變) ...
+    // --- 性格編輯器 ---
     function updatePersonalityUI(personalityText) { if(UIElements.currentPersonality) UIElements.currentPersonality.textContent = personalityText; }
     function setupPersonalityEditor(onUpdatePersonality) {
         if(!UIElements.personalityRow) return;
@@ -199,6 +202,46 @@
         presets.forEach(p => { const tag = document.createElement('span'); tag.className = 'preset-tag'; tag.textContent = p; tag.addEventListener('click', () => { UIElements.persInput.value = p; }); UIElements.presetTagsContainer.appendChild(tag); });
         UIElements.persCancelBtn.addEventListener('click', () => { UIElements.personalityModal.style.display = 'none'; });
         UIElements.persConfirmBtn.addEventListener('click', () => { const newPersonality = UIElements.persInput.value.trim(); if (newPersonality) { onUpdatePersonality(newPersonality); UIElements.personalityModal.style.display = 'none'; addLog(`心性轉變：${newPersonality}`, "#00bcd4"); } });
+    }
+
+    // --- 世界觀編輯器 (新增) ---
+    function updateWorldSettingUI(worldSettingText) { 
+        if(UIElements.currentWorldSetting) {
+            // 只顯示前20個字，避免UI爆掉
+            UIElements.currentWorldSetting.textContent = worldSettingText.length > 20 ? worldSettingText.substring(0, 20) + '...' : worldSettingText; 
+            UIElements.currentWorldSetting.title = worldSettingText; // 滑鼠懸停顯示全文
+        }
+    }
+    
+    function setupWorldSettingEditor(onUpdateWorldSetting) {
+        if(!UIElements.worldSettingRow) return;
+        
+        UIElements.worldSettingRow.addEventListener('click', () => { 
+            UIElements.worldInput.value = UIElements.currentWorldSetting.title || UIElements.currentWorldSetting.textContent; 
+            UIElements.worldSettingModal.style.display = 'flex'; 
+        });
+
+        // 載入世界觀預設值
+        const presets = window.GameSettings.WORLD_PRESETS || ["現代職場社畜 (預設)"]; 
+        UIElements.worldPresetTagsContainer.innerHTML = '';
+        presets.forEach(p => { 
+            const tag = document.createElement('span'); 
+            tag.className = 'preset-tag'; 
+            tag.textContent = p; 
+            tag.addEventListener('click', () => { UIElements.worldInput.value = p; }); 
+            UIElements.worldPresetTagsContainer.appendChild(tag); 
+        });
+
+        UIElements.worldCancelBtn.addEventListener('click', () => { UIElements.worldSettingModal.style.display = 'none'; });
+        
+        UIElements.worldConfirmBtn.addEventListener('click', () => { 
+            const newSetting = UIElements.worldInput.value.trim(); 
+            if (newSetting) { 
+                onUpdateWorldSetting(newSetting); 
+                UIElements.worldSettingModal.style.display = 'none'; 
+                addLog(`世界重塑：${newSetting}`, "#e91e63"); 
+            } 
+        });
     }
 
     function updateInventoryUI(inventory) {
@@ -248,7 +291,8 @@
         UIElements, translateWeatherCode, updateWeatherUI, updateCultivationUI, updateInventoryUI, setupGMTools, 
         setupAITesting, setAITestingState, setupPlayerImageHandler, updatePlayerImage, addLog, addStory, showFloatingExp,
         setupPersonalityEditor, updatePersonalityUI,
+        setupWorldSettingEditor, updateWorldSettingUI, // Export new functions
         startNewStoryRound, updateStoryContent,
-        setupStoryLengthSlider, getStoryLength // Export new functions
+        setupStoryLengthSlider, getStoryLength 
     };
 })(window);

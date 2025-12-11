@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>職場修仙・AI 天道</title>
+    <title>萬界修仙・AI 天道</title>
     <style>
         /* --- 基礎設定 --- */
         body {
@@ -70,9 +70,12 @@
         #cultivation-info { padding: 20px; text-align: center; background-color: #1e1e1e; z-index: 2; }
         #realm-name { font-size: 24px; font-weight: bold; color: #FFD700; margin: 0 0 10px 0; text-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
         
-        #personality-row { margin-top: 5px; font-size: 13px; color: #aaa; cursor: pointer; display: inline-block; padding: 2px 8px; border-radius: 4px; transition: background 0.2s; }
-        #personality-row:hover { background-color: #333; color: #fff; }
+        /* 可點擊的屬性行樣式 */
+        .clickable-row { margin-top: 3px; font-size: 13px; color: #aaa; cursor: pointer; display: inline-block; padding: 2px 8px; border-radius: 4px; transition: background 0.2s; }
+        .clickable-row:hover { background-color: #333; color: #fff; }
+        
         #current-personality { color: #00bcd4; font-weight: bold; }
+        #current-world-setting { color: #e91e63; font-weight: bold; }
 
         .progress-container { width: 100%; height: 6px; background-color: #333; border-radius: 3px; margin-bottom: 8px; overflow: hidden; margin-top: 10px; }
         .progress-bar { height: 100%; background: linear-gradient(90deg, #FFD700, #FFA000); width: 0%; transition: width 0.5s ease; }
@@ -112,7 +115,7 @@
         .loading-dots::after { content: '.'; animation: dots 1.5s steps(5, end) infinite; }
         @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60% { content: '...'; } 80%, 100% { content: ''; } }
 
-        /* 右側面板底部的控制區 (新增長度控制) */
+        /* 右側面板底部的控制區 */
         #story-controls { padding: 15px; background-color: #1e1e1e; border-top: 1px solid #333; display: flex; flex-direction: column; gap: 10px; }
         
         .length-control { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #888; }
@@ -125,7 +128,7 @@
         .exp-float { position: absolute; color: #FFD700; font-weight: bold; font-size: 18px; pointer-events: none; animation: float-up 1.2s forwards; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 5px rgba(0,0,0,0.8); z-index: 100; user-select: none; }
         @keyframes float-up { 0% { opacity: 1; transform: translateY(0) scale(1); } 50% { opacity: 1; transform: translateY(-30px) scale(1.1); } 100% { opacity: 0; transform: translateY(-60px) scale(0.9); } }
         
-        #gm-modal, #api-key-modal, #personality-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        #gm-modal, #api-key-modal, #personality-modal, #world-setting-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
         .modal-content { background: #222; padding: 20px; border-radius: 10px; width: 300px; border: 1px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
         .modal-content h3 { margin-top: 0; color: #e91e63; }
         .form-group { margin-bottom: 12px; }
@@ -135,9 +138,11 @@
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px; }
         .btn-cancel { background: transparent; border: 1px solid #555; color: #aaa; }
         .btn-confirm { background: #e91e63; border: none; color: white; }
-        #preset-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+        
+        .preset-tags-container { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; max-height: 120px; overflow-y: auto; }
         .preset-tag { font-size: 11px; background: #333; border: 1px solid #555; color: #ccc; padding: 4px 8px; border-radius: 12px; cursor: pointer; transition: all 0.2s; }
         .preset-tag:hover { background: #00bcd4; color: #000; border-color: #00bcd4; }
+        
         .rate-tooltip { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); padding: 8px; border-radius: 4px; font-size: 12px; pointer-events: none; display: none; z-index: 110; white-space: nowrap; border: 1px solid #444; }
         #visual-area:hover .rate-tooltip { display: block; }
         ::-webkit-scrollbar { width: 6px; }
@@ -184,7 +189,12 @@
 
             <div id="cultivation-info">
                 <h2 id="realm-name">煉氣期 前期</h2>
-                <div id="personality-row" title="點擊修改性格">性格: <span id="current-personality">普通人</span> ✏️</div>
+                
+                <!-- 世界觀與性格區塊 -->
+                <div id="world-setting-row" class="clickable-row" title="點擊修改世界觀">世界觀: <span id="current-world-setting">現代職場社畜</span> ✏️</div>
+                <div style="height: 4px;"></div>
+                <div id="personality-row" class="clickable-row" title="點擊修改性格">性格: <span id="current-personality">普通人</span> ✏️</div>
+                
                 <div class="progress-container"><div id="exp-bar" class="progress-bar"></div></div>
                 <div class="stats-text"><span>修為: <span id="exp-current">0</span> / <span id="exp-max">100</span></span><span>速度: <span id="exp-rate">1.0</span> /秒</span></div>
             </div>
@@ -211,7 +221,6 @@
                 </div>
             </div>
 
-            <!-- 新增：字數控制與按鈕 -->
             <div id="story-controls">
                 <div class="length-control">
                     <span>簡短</span>
@@ -226,7 +235,12 @@
 
     <!-- Modals -->
     <div id="gm-modal"><div class="modal-content"><h3>🌩️ 天道賜物 (GM)</h3><div class="form-group"><label>物品名稱</label><input type="text" id="gm-item-name"></div><div class="form-group"><label>圖示</label><input type="text" id="gm-item-icon" value="📦"></div><div class="form-group"><label>標籤</label><input type="text" id="gm-item-tags"></div><div class="form-group"><label>描述</label><textarea id="gm-item-desc"></textarea></div><div class="modal-actions"><button class="btn-cancel" id="gm-cancel-btn">取消</button><button class="btn-confirm" id="gm-confirm-btn">賜予</button></div></div></div>
-    <div id="personality-modal"><div class="modal-content"><h3>🧠 修改本性</h3><div class="form-group"><label>自訂性格</label><input type="text" id="personality-input"></div><div class="form-group"><label>或選擇預設：</label><div id="preset-tags"></div></div><div class="modal-actions"><button class="btn-cancel" id="pers-cancel-btn">取消</button><button class="btn-confirm" id="pers-confirm-btn">確認</button></div></div></div>
+    
+    <div id="personality-modal"><div class="modal-content"><h3>🧠 修改本性</h3><div class="form-group"><label>自訂性格</label><input type="text" id="personality-input"></div><div class="form-group"><label>或選擇預設：</label><div id="preset-tags" class="preset-tags-container"></div></div><div class="modal-actions"><button class="btn-cancel" id="pers-cancel-btn">取消</button><button class="btn-confirm" id="pers-confirm-btn">確認</button></div></div></div>
+    
+    <!-- 新增：世界觀修改 Modal -->
+    <div id="world-setting-modal"><div class="modal-content"><h3>🌍 重塑世界</h3><div class="form-group"><label>世界觀與風格描述</label><textarea id="world-input" placeholder="例如：充滿喪屍的末日世界，風格黑暗絕望。"></textarea></div><div class="form-group"><label>或選擇預設位面：</label><div id="world-preset-tags" class="preset-tags-container"></div></div><div class="modal-actions"><button class="btn-cancel" id="world-cancel-btn">取消</button><button class="btn-confirm" id="world-confirm-btn">確認</button></div></div></div>
+
     <div id="api-key-modal"><div class="modal-content"><h3>🔑 設定 Gemini API</h3><div class="form-group"><label>API Key</label><input type="password" id="gemini-api-key"></div><div class="modal-actions"><button class="btn-cancel" id="api-cancel-btn">取消</button><button class="btn-confirm" id="api-confirm-btn">確認</button></div></div></div>
 
     <script src="game_settings.js"></script>
