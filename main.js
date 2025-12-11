@@ -30,7 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
         inventory: [],
         storyHistory: [], 
         personality: "貪財好色，但又極度怕死",
-        worldSetting: "現代職場社畜 (黑色幽默)" 
+        worldSetting: "現代職場社畜 (黑色幽默)",
+        money: 1000 // 新增：金錢，預設 1000
     };
 
     let env = {
@@ -77,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ... (triggerAIDualLoop 引用新的設定結構) ...
+    // ... (triggerAIDualLoop) ...
     async function triggerAIDualLoop(apiKey) {
         ui.setAITestingState(true);
         const currentRoundId = ui.startNewStoryRound();
@@ -97,7 +98,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const wordLimit = ui.getStoryLength();
             const itemCount = state.inventory.length;
 
-            // --- 修改：從 Config 讀取動態指令 ---
             const dynamicRules = Config.aiConfig.DYNAMIC_INSTRUCTIONS || { 
                 POOR: { actor: "找東西", dm: "給東西" }, 
                 RICH: { actor: "用東西", dm: "拆東西" }, 
@@ -111,11 +111,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedRule = dynamicRules.RICH;
             }
 
-            // 替換變數 {itemCount}
             const actorDynamicInstruction = selectedRule.actor.replace('{itemCount}', itemCount);
             const dmDynamicInstruction = selectedRule.dm.replace('{itemCount}', itemCount);
 
-            // 注入 world_setting 與 動態指令
+            // 注入變數 (新增 money)
             let prompt1 = Config.aiConfig.PROMPT_ACTOR
                 .replace('{world_setting}', worldSetting)
                 .replace('{all_realms}', allRealmsList)
@@ -126,7 +125,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 .replace('{temp}', env.temp)
                 .replace('{inventory}', inventoryStr)
                 .replace('{personality}', personality)
-                .replace('{dynamic_instruction}', actorDynamicInstruction); // 使用 replace 替換 placeholder
+                .replace('{money}', state.money) // 注入金錢
+                .replace('{dynamic_instruction}', actorDynamicInstruction);
             
             const actorResult = await callGeminiAPI(prompt1, apiKey);
             if (!actorResult) return;
@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (usedItemsInfo.length > 0) { usedItemsDesc = usedItemsInfo.join("\n + "); }
             }
 
-            // 注入 world_setting 與 動態指令
+            // 注入變數 (新增 money)
             let prompt2 = Config.aiConfig.PROMPT_DM
                 .replace('{world_setting}', worldSetting)
                 .replace('{all_realms}', allRealmsList)
@@ -172,13 +172,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 .replace('{intention}', actorResult.intention_description)
                 .replace('{used_items_desc}', usedItemsDesc)
                 .replace('{word_limit}', wordLimit)
-                .replace('{dynamic_instruction}', dmDynamicInstruction); // 使用 replace 替換 placeholder
+                .replace('{money}', state.money) // 注入金錢
+                .replace('{dynamic_instruction}', dmDynamicInstruction);
 
             const dmResult = await callGeminiAPI(prompt2, apiKey);
             if (dmResult.error) throw new Error(dmResult.error);
 
             const resultColor = dmResult.result_type === 'success' ? '#4caf50' : (dmResult.result_type === 'failure' ? '#f44336' : '#FFD700');
             
+            // --- 處理金錢變動 ---
+            let moneyChangeMsg = "";
+            if (dmResult.money_change && dmResult.money_change !== 0) {
+                state.money += parseInt(dmResult.money_change);
+                moneyChangeMsg = dmResult.money_change > 0 ? ` (+${dmResult.money_change} TWD)` : ` (${dmResult.money_change} TWD)`;
+                ui.updateMoneyUI(state.money); // 更新 UI
+            }
+
             currentRoundHTML = `
                 <div class="sc-section">
                     <div class="sc-title" style="color: #00bcd4;">角色意圖</div>
@@ -188,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="sc-section" style="border-left-color: ${resultColor}">
                     <div class="sc-title" style="color: ${resultColor};">天道裁決</div>
                     <div class="sc-text">${dmResult.story}</div>
-                    ${dmResult.effect_summary ? `<div class="sc-effect">✨ ${dmResult.effect_summary}</div>` : ''}
+                    ${dmResult.effect_summary ? `<div class="sc-effect">✨ ${dmResult.effect_summary}${moneyChangeMsg}</div>` : ''}
                 </div>
             `;
             ui.updateStoryContent(currentRoundId, currentRoundHTML);
@@ -201,7 +210,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (dmResult.exp_change_percentage && dmResult.exp_change_percentage !== 0) {
                 const deltaPercentage = parseInt(dmResult.exp_change_percentage);
                 if (!isNaN(deltaPercentage)) {
-                    // 數值修正：計算變化量並四捨五入
                     const rawExpDelta = currentRealmData.expRequired * (deltaPercentage / 100);
                     const expDelta = round(rawExpDelta);
 
@@ -210,13 +218,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             ui.addLog(`修為已至瓶頸，頓悟化為雲煙。`, "#aaa");
                         } else {
                             const oldExp = state.exp;
-                            // 數值修正：加總後四捨五入
                             state.exp = round(state.exp + expDelta);
 
                             if (state.exp < 0) state.exp = 0;
                             if (state.exp > currentRealmData.expRequired) state.exp = currentRealmData.expRequired;
                             
-                            // 計算實際變化量（顯示用）
                             const actualChange = round(state.exp - oldExp);
                             
                             if (actualChange > 0) {
@@ -227,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                             checkLevelUp();
                             refreshUI(calculateExpRate());
-                            saveGame(); // 重要事件後立即存檔
+                            saveGame(); 
                         }
                     }
                 }
@@ -253,7 +259,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 ui.addLog(`失去物品：${usedItemsDesc}`, "#f44336"); 
             }
 
-            if (inventoryChanged) { saveGame(); ui.updateInventoryUI(state.inventory); }
+            // 確保金錢或物品變動後存檔
+            if (inventoryChanged || dmResult.money_change) { 
+                saveGame(); 
+                ui.updateInventoryUI(state.inventory); 
+            }
 
         } catch (e) { 
             console.error("Logic Error:", e); 
@@ -339,7 +349,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 performLevelUp(); 
             } else { 
                 ui.addLog("噗——！真氣逆行，突破失敗...", '#f44336'); 
-                // 數值修正：失敗懲罰後四捨五入
                 state.exp = round(state.exp * 0.8); 
                 state.isAwaitingTribulation = false; 
                 ui.addLog("境界跌落，需重新累積靈氣。", '#888'); 
@@ -355,11 +364,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!levelData) return; 
         ui.updateCultivationUI({ 
             levelData: levelData, 
-            currentExp: state.exp, // 傳入已四捨五入的 exp
+            currentExp: state.exp,
             isAwaitingTribulation: state.isAwaitingTribulation, 
             currentRate: rate.total, 
             rateBreakdown: rate 
         }); 
+        ui.updateMoneyUI(state.money); // 更新金錢UI
         ui.updateInventoryUI(state.inventory); 
     }
     
@@ -382,6 +392,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!state.worldSetting) { 
                     state.worldSetting = "現代職場社畜 (預設)"; 
                 }
+                // 確保舊存檔有 money
+                if (typeof state.money === 'undefined') {
+                    state.money = 1000;
+                }
 
                 state.inventory.forEach(item => {
                     if (!item.id) item.id = Date.now() + Math.floor(Math.random() * 100000);
@@ -398,11 +412,13 @@ document.addEventListener('DOMContentLoaded', () => {
             ui.addLog("歡迎來到職場修仙世界。");
             const randomPersonality = Config.personalities[Math.floor(Math.random() * Config.personalities.length)];
             state.personality = randomPersonality;
-            state.worldSetting = "現代職場社畜 (預設)"; // 初始值
+            state.worldSetting = "現代職場社畜 (預設)";
+            state.money = 1000;
             ui.addLog(`性格覺醒：${state.personality}`, "#FFD700");
         }
         ui.updatePersonalityUI(state.personality);
-        ui.updateWorldSettingUI(state.worldSetting); // 更新 UI
+        ui.updateWorldSettingUI(state.worldSetting);
+        ui.updateMoneyUI(state.money); // 初始 UI 更新
     }
     
     function clearSave() { if(confirm("確定重置？")) { localStorage.removeItem(SAVE_KEY); location.reload(); } }
@@ -414,8 +430,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         ui.setupPersonalityEditor((newPersonality) => { state.personality = newPersonality; saveGame(); ui.updatePersonalityUI(newPersonality); });
         
-        // 綁定新的世界觀編輯器
         ui.setupWorldSettingEditor((newSetting) => { state.worldSetting = newSetting; saveGame(); ui.updateWorldSettingUI(newSetting); });
+
+        // 新增：綁定金錢修改器
+        ui.setupMoneyEditor((newMoney) => { state.money = newMoney; saveGame(); ui.updateMoneyUI(newMoney); });
 
         ui.setupStoryLengthSlider();
         

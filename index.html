@@ -36,7 +36,7 @@
         }
 
         /* --- 左側：乾坤袋 --- */
-        #inventory-panel { width: 260px; height: 500px; }
+        #inventory-panel { width: 260px; height: 500px; display: flex; flex-direction: column; }
         #inventory-header { padding: 15px; background: linear-gradient(180deg, #2a2a2a 0%, #1e1e1e 100%); border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
         #inventory-header h3 { margin: 0; font-size: 16px; color: #FFD700; }
         #add-item-btn { background: #333; border: 1px solid #555; color: #aaa; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 16px; line-height: 1; display: flex; align-items: center; justify-content: center; }
@@ -45,6 +45,13 @@
         .item-slot { width: 50px; height: 50px; background-color: #252525; border: 1px solid #333; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: help; transition: all 0.2s; position: relative; user-select: none; }
         .item-slot:hover { border-color: #666; background-color: #2a2a2a; }
         .item-icon { font-size: 24px; }
+
+        /* 左側底部：資產顯示區 (移到這裡) */
+        #assets-footer { padding: 12px; background-color: #1a1a1a; border-top: 1px solid #333; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+        #money-display { color: #4caf50; font-family: 'Consolas', monospace; font-weight: bold; }
+        #money-display.debt { color: #f44336; }
+        #edit-money-btn { background: transparent; border: none; cursor: pointer; font-size: 14px; opacity: 0.5; transition: opacity 0.2s; }
+        #edit-money-btn:hover { opacity: 1; transform: scale(1.1); }
 
         /* --- Tooltip --- */
         .item-tooltip { position: absolute; background-color: rgba(0, 0, 0, 0.95); border: 1px solid #FFD700; padding: 10px; border-radius: 8px; width: 200px; z-index: 200; pointer-events: none; display: none; box-shadow: 0 5px 15px rgba(0,0,0,0.8); font-size: 13px; line-height: 1.4; }
@@ -128,7 +135,7 @@
         .exp-float { position: absolute; color: #FFD700; font-weight: bold; font-size: 18px; pointer-events: none; animation: float-up 1.2s forwards; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 5px rgba(0,0,0,0.8); z-index: 100; user-select: none; }
         @keyframes float-up { 0% { opacity: 1; transform: translateY(0) scale(1); } 50% { opacity: 1; transform: translateY(-30px) scale(1.1); } 100% { opacity: 0; transform: translateY(-60px) scale(0.9); } }
         
-        #gm-modal, #api-key-modal, #personality-modal, #world-setting-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        #gm-modal, #api-key-modal, #personality-modal, #world-setting-modal, #money-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
         .modal-content { background: #222; padding: 20px; border-radius: 10px; width: 300px; border: 1px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
         .modal-content h3 { margin-top: 0; color: #e91e63; }
         .form-group { margin-bottom: 12px; }
@@ -161,6 +168,11 @@
                 <div id="add-item-btn" title="[GM] 天道賜物">+</div>
             </div>
             <div id="inventory-grid"></div>
+            <!-- 新增：左側底部的資產區 -->
+            <div id="assets-footer">
+                <div>💰 資產: <span id="money-display">0</span> TWD</div>
+                <button id="edit-money-btn" title="[GM] 修改金額">✏️</button>
+            </div>
         </div>
 
         <!-- Tooltip -->
@@ -238,10 +250,12 @@
     
     <div id="personality-modal"><div class="modal-content"><h3>🧠 修改本性</h3><div class="form-group"><label>自訂性格</label><input type="text" id="personality-input"></div><div class="form-group"><label>或選擇預設：</label><div id="preset-tags" class="preset-tags-container"></div></div><div class="modal-actions"><button class="btn-cancel" id="pers-cancel-btn">取消</button><button class="btn-confirm" id="pers-confirm-btn">確認</button></div></div></div>
     
-    <!-- 新增：世界觀修改 Modal -->
     <div id="world-setting-modal"><div class="modal-content"><h3>🌍 重塑世界</h3><div class="form-group"><label>世界觀與風格描述</label><textarea id="world-input" placeholder="例如：充滿喪屍的末日世界，風格黑暗絕望。"></textarea></div><div class="form-group"><label>或選擇預設位面：</label><div id="world-preset-tags" class="preset-tags-container"></div></div><div class="modal-actions"><button class="btn-cancel" id="world-cancel-btn">取消</button><button class="btn-confirm" id="world-confirm-btn">確認</button></div></div></div>
 
     <div id="api-key-modal"><div class="modal-content"><h3>🔑 設定 Gemini API</h3><div class="form-group"><label>API Key</label><input type="password" id="gemini-api-key"></div><div class="modal-actions"><button class="btn-cancel" id="api-cancel-btn">取消</button><button class="btn-confirm" id="api-confirm-btn">確認</button></div></div></div>
+
+    <!-- 新增：金錢修改 Modal -->
+    <div id="money-modal"><div class="modal-content"><h3>💰 財運修改 (GM)</h3><div class="form-group"><label>設定新金額</label><input type="number" id="money-input"></div><div class="modal-actions"><button class="btn-cancel" id="money-cancel-btn">取消</button><button class="btn-confirm" id="money-confirm-btn">確認</button></div></div></div>
 
     <script src="game_settings.js"></script>
     <script src="ui_manager.js"></script>

@@ -9,6 +9,15 @@
         weatherCondition: getEl('weather-condition'),
         weatherTemp: getEl('weather-temp'),
         realmName: getEl('realm-name'),
+        
+        // 金錢 (更新)
+        moneyDisplay: getEl('money-display'),
+        editMoneyBtn: getEl('edit-money-btn'),
+        moneyModal: getEl('money-modal'),
+        moneyInput: getEl('money-input'),
+        moneyCancelBtn: getEl('money-cancel-btn'),
+        moneyConfirmBtn: getEl('money-confirm-btn'),
+
         expBar: getEl('exp-bar'),
         expCurrent: getEl('exp-current'),
         expMax: getEl('exp-max'),
@@ -49,7 +58,7 @@
         persCancelBtn: getEl('pers-cancel-btn'),
         persConfirmBtn: getEl('pers-confirm-btn'),
 
-        // --- 世界觀編輯器 (新增) ---
+        // --- 世界觀編輯器 ---
         worldSettingRow: getEl('world-setting-row'),
         currentWorldSetting: getEl('current-world-setting'),
         worldSettingModal: getEl('world-setting-modal'),
@@ -75,6 +84,46 @@
     function translateWeatherCode(code) { const weatherMap = { 0: "晴天 ☀️", 1: "晴時多雲 🌤️", 2: "多雲 🌥️", 3: "陰天 ☁️", 45: "霧 🌫️", 48: "霧 🌫️", 51: "毛毛雨 💧", 53: "毛毛雨 💧", 61: "雨天 🌧️", 63: "大雨 🌧️", 80: "陣雨 🌦️", 95: "雷雨 ⛈️" }; return weatherMap[code] || "未知天氣"; }
     function updateWeatherUI(location, condition, temp) { if(UIElements.weatherLocation) UIElements.weatherLocation.textContent = location; if(UIElements.weatherCondition) UIElements.weatherCondition.textContent = condition; if(UIElements.weatherTemp) UIElements.weatherTemp.textContent = temp; }
     
+    // 更新金錢 UI
+    function updateMoneyUI(amount) {
+        if (!UIElements.moneyDisplay) return;
+        UIElements.moneyDisplay.textContent = amount;
+        if (amount < 0) {
+            UIElements.moneyDisplay.classList.add('debt');
+            UIElements.moneyDisplay.textContent = `${amount} (負債)`;
+        } else {
+            UIElements.moneyDisplay.classList.remove('debt');
+        }
+    }
+
+    // 設定 GM 金錢修改器
+    function setupMoneyEditor(onUpdateMoney) {
+        if (!UIElements.editMoneyBtn) return;
+        
+        UIElements.editMoneyBtn.addEventListener('click', () => {
+            // 抓取當前顯示的金額 (去掉文字部分)
+            let currentVal = parseInt(UIElements.moneyDisplay.textContent);
+            if (isNaN(currentVal)) currentVal = 0;
+            UIElements.moneyInput.value = currentVal;
+            UIElements.moneyModal.style.display = 'flex';
+        });
+
+        UIElements.moneyCancelBtn.addEventListener('click', () => {
+            UIElements.moneyModal.style.display = 'none';
+        });
+
+        UIElements.moneyConfirmBtn.addEventListener('click', () => {
+            const newVal = parseInt(UIElements.moneyInput.value);
+            if (!isNaN(newVal)) {
+                onUpdateMoney(newVal);
+                UIElements.moneyModal.style.display = 'none';
+                addLog(`【GM】命運修正：資產變更為 ${newVal} TWD`, '#FFD700');
+            } else {
+                alert("請輸入有效的數字");
+            }
+        });
+    }
+
     function updateCultivationUI(data) {
         if (!UIElements.realmName) return;
         const { levelData, currentExp, isAwaitingTribulation, currentRate, rateBreakdown } = data;
@@ -204,12 +253,11 @@
         UIElements.persConfirmBtn.addEventListener('click', () => { const newPersonality = UIElements.persInput.value.trim(); if (newPersonality) { onUpdatePersonality(newPersonality); UIElements.personalityModal.style.display = 'none'; addLog(`心性轉變：${newPersonality}`, "#00bcd4"); } });
     }
 
-    // --- 世界觀編輯器 (新增) ---
+    // --- 世界觀編輯器 ---
     function updateWorldSettingUI(worldSettingText) { 
         if(UIElements.currentWorldSetting) {
-            // 只顯示前20個字，避免UI爆掉
             UIElements.currentWorldSetting.textContent = worldSettingText.length > 20 ? worldSettingText.substring(0, 20) + '...' : worldSettingText; 
-            UIElements.currentWorldSetting.title = worldSettingText; // 滑鼠懸停顯示全文
+            UIElements.currentWorldSetting.title = worldSettingText; 
         }
     }
     
@@ -221,7 +269,6 @@
             UIElements.worldSettingModal.style.display = 'flex'; 
         });
 
-        // 載入世界觀預設值
         const presets = window.GameSettings.WORLD_PRESETS || ["現代職場社畜 (預設)"]; 
         UIElements.worldPresetTagsContainer.innerHTML = '';
         presets.forEach(p => { 
@@ -288,10 +335,10 @@
     }
 
     window.UIManager = {
-        UIElements, translateWeatherCode, updateWeatherUI, updateCultivationUI, updateInventoryUI, setupGMTools, 
-        setupAITesting, setAITestingState, setupPlayerImageHandler, updatePlayerImage, addLog, addStory, showFloatingExp,
+        UIElements, translateWeatherCode, updateWeatherUI, updateCultivationUI, updateInventoryUI, updateMoneyUI, setupMoneyEditor, // Export
+        setupGMTools, setupAITesting, setAITestingState, setupPlayerImageHandler, updatePlayerImage, addLog, addStory, showFloatingExp,
         setupPersonalityEditor, updatePersonalityUI,
-        setupWorldSettingEditor, updateWorldSettingUI, // Export new functions
+        setupWorldSettingEditor, updateWorldSettingUI, 
         startNewStoryRound, updateStoryContent,
         setupStoryLengthSlider, getStoryLength 
     };
