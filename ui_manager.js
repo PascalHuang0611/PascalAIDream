@@ -1,55 +1,72 @@
 (function(window) {
     'use strict';
 
-    const UIElements = {
-        // ... 原有元素 ...
-        weatherLocation: document.getElementById('weather-location'),
-        weatherCondition: document.getElementById('weather-condition'),
-        weatherTemp: document.getElementById('weather-temp'),
-        realmName: document.getElementById('realm-name'),
-        expBar: document.getElementById('exp-bar'),
-        expCurrent: document.getElementById('exp-current'),
-        expMax: document.getElementById('exp-max'),
-        expRate: document.getElementById('exp-rate'),
-        rateDetails: document.getElementById('rate-details'),
-        breakthroughBtn: document.getElementById('breakthrough-btn'),
-        narrativeLog: document.getElementById('narrative-log'),
-        settingsBtn: document.getElementById('settings-btn'),
-        visualArea: document.getElementById('visual-area'),
-        playerImg: document.getElementById('player-img'),
-        playerImgInput: document.getElementById('player-img-upload'),
-        inventoryGrid: document.getElementById('inventory-grid'),
-        itemTooltip: document.getElementById('item-tooltip'),
-        addItemBtn: document.getElementById('add-item-btn'),
-        gmModal: document.getElementById('gm-modal'),
-        gmCancelBtn: document.getElementById('gm-cancel-btn'),
-        gmConfirmBtn: document.getElementById('gm-confirm-btn'),
-        gmInputs: { name: document.getElementById('gm-item-name'), icon: document.getElementById('gm-item-icon'), tags: document.getElementById('gm-item-tags'), desc: document.getElementById('gm-item-desc') },
-        testAIBtn: document.getElementById('test-ai-btn'),
-        apiKeyModal: document.getElementById('api-key-modal'),
-        apiCancelBtn: document.getElementById('api-cancel-btn'),
-        apiConfirmBtn: document.getElementById('api-confirm-btn'),
-        apiKeyInput: document.getElementById('gemini-api-key'),
-        storyLog: document.getElementById('story-log'),
+    function getEl(id) { return document.getElementById(id); }
 
-        // --- 新增：性格相關 ---
-        personalityRow: document.getElementById('personality-row'),
-        currentPersonality: document.getElementById('current-personality'),
-        personalityModal: document.getElementById('personality-modal'),
-        persInput: document.getElementById('personality-input'),
-        presetTagsContainer: document.getElementById('preset-tags'),
-        persCancelBtn: document.getElementById('pers-cancel-btn'),
-        persConfirmBtn: document.getElementById('pers-confirm-btn')
+    const UIElements = {
+        // --- 基礎資訊 ---
+        weatherLocation: getEl('weather-location'),
+        weatherCondition: getEl('weather-condition'),
+        weatherTemp: getEl('weather-temp'),
+        realmName: getEl('realm-name'),
+        expBar: getEl('exp-bar'),
+        expCurrent: getEl('exp-current'),
+        expMax: getEl('exp-max'),
+        expRate: getEl('exp-rate'),
+        rateDetails: getEl('rate-details'),
+        
+        // --- 互動與日誌 ---
+        breakthroughBtn: getEl('breakthrough-btn'),
+        narrativeLog: getEl('narrative-log'),
+        settingsBtn: getEl('settings-btn'),
+        visualArea: getEl('visual-area'),
+        playerImg: getEl('player-img'),
+        playerImgInput: getEl('player-img-upload'),
+        
+        // --- 物品欄 ---
+        inventoryGrid: getEl('inventory-grid'),
+        itemTooltip: getEl('item-tooltip'),
+        addItemBtn: getEl('add-item-btn'),
+        
+        // --- Modals ---
+        gmModal: getEl('gm-modal'),
+        gmCancelBtn: getEl('gm-cancel-btn'),
+        gmConfirmBtn: getEl('gm-confirm-btn'),
+        gmInputs: { name: getEl('gm-item-name'), icon: getEl('gm-item-icon'), tags: getEl('gm-item-tags'), desc: getEl('gm-item-desc') },
+        
+        testAIBtn: getEl('test-ai-btn'),
+        apiKeyModal: getEl('api-key-modal'),
+        apiCancelBtn: getEl('api-cancel-btn'),
+        apiConfirmBtn: getEl('api-confirm-btn'),
+        apiKeyInput: getEl('gemini-api-key'),
+        
+        personalityRow: getEl('personality-row'),
+        currentPersonality: getEl('current-personality'),
+        personalityModal: getEl('personality-modal'),
+        persInput: getEl('personality-input'),
+        presetTagsContainer: getEl('preset-tags'),
+        persCancelBtn: getEl('pers-cancel-btn'),
+        persConfirmBtn: getEl('pers-confirm-btn'),
+
+        // --- 頁籤系統 ---
+        storyTabsContainer: getEl('story-tabs-container'),
+        storyContentContainer: getEl('story-content-container'),
+
+        // --- 字數控制 ---
+        storyLengthSlider: getEl('story-length-slider'),
+        storyLenVal: getEl('story-len-val')
     };
 
     let onDeleteCallback = null;
+    let roundCount = 0; 
+    let activeTabId = null;
 
-    // ... (保留翻譯與天氣更新) ...
+    // --- 輔助函式 ---
     function translateWeatherCode(code) { const weatherMap = { 0: "晴天 ☀️", 1: "晴時多雲 🌤️", 2: "多雲 🌥️", 3: "陰天 ☁️", 45: "霧 🌫️", 48: "霧 🌫️", 51: "毛毛雨 💧", 53: "毛毛雨 💧", 61: "雨天 🌧️", 63: "大雨 🌧️", 80: "陣雨 🌦️", 95: "雷雨 ⛈️" }; return weatherMap[code] || "未知天氣"; }
-    function updateWeatherUI(location, condition, temp) { UIElements.weatherLocation.textContent = location; UIElements.weatherCondition.textContent = condition; UIElements.weatherTemp.textContent = temp; }
+    function updateWeatherUI(location, condition, temp) { if(UIElements.weatherLocation) UIElements.weatherLocation.textContent = location; if(UIElements.weatherCondition) UIElements.weatherCondition.textContent = condition; if(UIElements.weatherTemp) UIElements.weatherTemp.textContent = temp; }
     
-    // ... (保留修練 UI 更新) ...
     function updateCultivationUI(data) {
+        if (!UIElements.realmName) return;
         const { levelData, currentExp, isAwaitingTribulation, currentRate, rateBreakdown } = data;
         UIElements.realmName.textContent = levelData.fullDisplayName || levelData.displayName;
         UIElements.realmName.style.color = levelData.color;
@@ -72,149 +89,166 @@
         }
     }
 
-    // --- 新增：更新性格顯示 ---
-    function updatePersonalityUI(personalityText) {
-        UIElements.currentPersonality.textContent = personalityText;
+    // --- 開啟新一輪故事 (頁籤) ---
+    function startNewStoryRound() {
+        // 安全檢查，如果找不到容器就重新抓取
+        if (!UIElements.storyTabsContainer || !UIElements.storyContentContainer) {
+            UIElements.storyTabsContainer = document.getElementById('story-tabs-container');
+            UIElements.storyContentContainer = document.getElementById('story-content-container');
+            if (!UIElements.storyTabsContainer) return null;
+        }
+
+        roundCount++;
+        const tabId = `round-${roundCount}`;
+        
+        // [關鍵修正] 如果是第一回，清空容器以移除初始提示文字
+        if (roundCount === 1) {
+            UIElements.storyContentContainer.innerHTML = '';
+        }
+
+        // 1. 移除舊內容 (如果超過 5 個)
+        const allTabs = UIElements.storyTabsContainer.querySelectorAll('.story-tab');
+        if (allTabs.length >= 5) {
+            const firstTab = allTabs[0];
+            const firstContent = document.getElementById(firstTab.dataset.target);
+            firstTab.remove();
+            if (firstContent) firstContent.remove();
+        }
+
+        // 2. 建立新頁籤按鈕
+        const tabBtn = document.createElement('div');
+        tabBtn.className = 'story-tab active'; 
+        tabBtn.textContent = `第 ${roundCount} 回`;
+        tabBtn.dataset.target = tabId;
+        tabBtn.addEventListener('click', () => switchStoryTab(tabId));
+        UIElements.storyTabsContainer.appendChild(tabBtn);
+
+        // 3. 建立新內容區塊
+        const contentDiv = document.createElement('div');
+        contentDiv.id = tabId;
+        contentDiv.className = 'story-cycle-content active';
+        contentDiv.innerHTML = `<div class="sc-section"><div class="sc-title loading-dots">天道推演中</div></div>`;
+        UIElements.storyContentContainer.appendChild(contentDiv);
+
+        // 4. 切換到新頁籤
+        switchStoryTab(tabId);
+        UIElements.storyTabsContainer.scrollLeft = UIElements.storyTabsContainer.scrollWidth;
+
+        return tabId;
     }
 
-    // --- 新增：設定性格編輯器 ---
-    function setupPersonalityEditor(onUpdatePersonality) {
-        // 1. 綁定開啟 Modal
-        UIElements.personalityRow.addEventListener('click', () => {
-            // 填入當前值
-            UIElements.persInput.value = UIElements.currentPersonality.textContent;
-            UIElements.personalityModal.style.display = 'flex';
+    function switchStoryTab(tabId) {
+        activeTabId = tabId;
+        document.querySelectorAll('.story-tab').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.target === tabId);
         });
-
-        // 2. 生成預設標籤按鈕
-        const presets = window.GameSettings.PERSONALITIES || [];
-        UIElements.presetTagsContainer.innerHTML = '';
-        presets.forEach(p => {
-            const tag = document.createElement('span');
-            tag.className = 'preset-tag';
-            tag.textContent = p;
-            tag.addEventListener('click', () => {
-                UIElements.persInput.value = p; // 點擊自動填入
-            });
-            UIElements.presetTagsContainer.appendChild(tag);
-        });
-
-        // 3. 綁定關閉與確認
-        UIElements.persCancelBtn.addEventListener('click', () => {
-            UIElements.personalityModal.style.display = 'none';
-        });
-
-        UIElements.persConfirmBtn.addEventListener('click', () => {
-            const newPersonality = UIElements.persInput.value.trim();
-            if (newPersonality) {
-                onUpdatePersonality(newPersonality);
-                UIElements.personalityModal.style.display = 'none';
-                addLog(`心性轉變：${newPersonality}`, "#00bcd4");
-            }
+        document.querySelectorAll('.story-cycle-content').forEach(div => {
+            div.classList.toggle('active', div.id === tabId);
         });
     }
 
-    // ... (保留 updateInventoryUI, setupGMTools) ...
-    function updateInventoryUI(inventory) {
-        UIElements.inventoryGrid.innerHTML = '';
-        const totalSlots = 16;
-        for (let i = 0; i < totalSlots; i++) {
-            const slot = document.createElement('div');
-            slot.className = 'item-slot';
-            const item = inventory[i];
-            if (item) {
-                slot.innerHTML = `<span class="item-icon">${item.icon || '📦'}</span>`;
-                slot.addEventListener('mouseenter', (e) => showItemTooltip(e, item));
-                slot.addEventListener('mouseleave', hideItemTooltip);
-                slot.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    if (confirm(`【GM 操作】\n確定要將「${item.name}」從存在中抹除嗎？`)) {
-                        if (onDeleteCallback) onDeleteCallback(item.id);
-                        hideItemTooltip();
-                    }
-                });
-            }
-            UIElements.inventoryGrid.appendChild(slot);
+    function updateStoryContent(targetTabId, htmlContent) {
+        if (!targetTabId) return;
+        const targetDiv = document.getElementById(targetTabId);
+        if (targetDiv) {
+            targetDiv.innerHTML = htmlContent;
         }
     }
 
-    function showItemTooltip(e, item) {
-        const tooltip = UIElements.itemTooltip;
-        tooltip.querySelector('.tooltip-title').textContent = item.name;
-        tooltip.querySelector('.tooltip-tags').textContent = item.tags.join(', ');
-        tooltip.querySelector('.tooltip-desc').textContent = item.description;
-        tooltip.style.display = 'block';
-        const rect = e.target.getBoundingClientRect();
-        tooltip.style.left = `${rect.right + 10}px`;
-        tooltip.style.top = `${rect.top}px`;
-    }
-    function hideItemTooltip() { UIElements.itemTooltip.style.display = 'none'; }
+    // 兼容舊版 addStory
+    function addStory(title, content, effect = null, color = '#ccc') {
+        const time = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+        let html = `
+            <div class="sc-section" style="border-left-color: ${color === '#f44336' ? '#f44336' : '#FFD700'}; animation: fadeIn 0.5s ease;">
+                <div class="sc-title" style="color: ${color};">${title} (${time})</div>
+                <div class="sc-text">${content}</div>
+                ${effect ? `<div class="sc-effect">✨ ${effect}</div>` : ''}
+            </div>
+        `;
 
+        if (activeTabId) {
+            const targetDiv = document.getElementById(activeTabId);
+            if (targetDiv) {
+                targetDiv.insertAdjacentHTML('beforeend', html);
+                targetDiv.scrollTop = targetDiv.scrollHeight;
+                return;
+            }
+        }
+        addLog(`[${title}] ${content}`, color);
+    }
+
+    // --- 故事長度滑桿 ---
+    function setupStoryLengthSlider() {
+        if (UIElements.storyLengthSlider && UIElements.storyLenVal) {
+            UIElements.storyLengthSlider.addEventListener('input', (e) => {
+                UIElements.storyLenVal.textContent = e.target.value;
+            });
+        }
+    }
+
+    function getStoryLength() {
+        return UIElements.storyLengthSlider ? parseInt(UIElements.storyLengthSlider.value) : 100;
+    }
+
+    // ... (其他函式保持不變) ...
+    function updatePersonalityUI(personalityText) { if(UIElements.currentPersonality) UIElements.currentPersonality.textContent = personalityText; }
+    function setupPersonalityEditor(onUpdatePersonality) {
+        if(!UIElements.personalityRow) return;
+        UIElements.personalityRow.addEventListener('click', () => { UIElements.persInput.value = UIElements.currentPersonality.textContent; UIElements.personalityModal.style.display = 'flex'; });
+        const presets = window.GameSettings.PERSONALITIES || []; UIElements.presetTagsContainer.innerHTML = '';
+        presets.forEach(p => { const tag = document.createElement('span'); tag.className = 'preset-tag'; tag.textContent = p; tag.addEventListener('click', () => { UIElements.persInput.value = p; }); UIElements.presetTagsContainer.appendChild(tag); });
+        UIElements.persCancelBtn.addEventListener('click', () => { UIElements.personalityModal.style.display = 'none'; });
+        UIElements.persConfirmBtn.addEventListener('click', () => { const newPersonality = UIElements.persInput.value.trim(); if (newPersonality) { onUpdatePersonality(newPersonality); UIElements.personalityModal.style.display = 'none'; addLog(`心性轉變：${newPersonality}`, "#00bcd4"); } });
+    }
+
+    function updateInventoryUI(inventory) {
+        const grid = document.getElementById('inventory-grid');
+        if (!grid) { console.error("Critical Error: 'inventory-grid' element not found in DOM."); return; }
+        grid.innerHTML = ''; const totalSlots = 16;
+        for (let i = 0; i < totalSlots; i++) {
+            const slot = document.createElement('div'); slot.className = 'item-slot'; const item = inventory[i];
+            if (item) { slot.innerHTML = `<span class="item-icon">${item.icon || '📦'}</span>`; slot.addEventListener('mouseenter', (e) => showItemTooltip(e, item)); slot.addEventListener('mouseleave', hideItemTooltip); slot.addEventListener('contextmenu', (e) => { e.preventDefault(); if (confirm(`【GM 操作】\n確定要將「${item.name}」從存在中抹除嗎？`)) { if (onDeleteCallback && item.id) { onDeleteCallback(item.id); } else { console.error("Delete failed: Item has no ID or callback missing", item); if (onDeleteCallback && typeof item.id === 'undefined') { addLog("錯誤：該物品沒有靈魂烙印 (UID)，無法精確刪除。", "red"); } } hideItemTooltip(); } }); }
+            grid.appendChild(slot);
+        }
+    }
+    
+    function showItemTooltip(e, item) { const tooltip = UIElements.itemTooltip; tooltip.querySelector('.tooltip-title').textContent = item.name; tooltip.querySelector('.tooltip-tags').textContent = item.tags.join(', '); tooltip.querySelector('.tooltip-desc').textContent = item.description; tooltip.style.display = 'block'; const rect = e.target.getBoundingClientRect(); tooltip.style.left = `${rect.right + 10}px`; tooltip.style.top = `${rect.top}px`; }
+    function hideItemTooltip() { UIElements.itemTooltip.style.display = 'none'; }
     function setupGMTools(onAddItem, onDeleteItem) {
         onDeleteCallback = onDeleteItem;
         UIElements.addItemBtn.addEventListener('click', () => { UIElements.gmModal.style.display = 'flex'; });
         UIElements.gmCancelBtn.addEventListener('click', () => { UIElements.gmModal.style.display = 'none'; clearGMInputs(); });
-        UIElements.gmConfirmBtn.addEventListener('click', () => {
-            const name = UIElements.gmInputs.name.value.trim();
-            if (!name) return alert("物品名稱不可為空");
-            const newItem = { id: Date.now(), name: name, icon: UIElements.gmInputs.icon.value.trim() || '📦', tags: UIElements.gmInputs.tags.value.split(/[,，]/).map(t => t.trim()).filter(t => t), description: UIElements.gmInputs.desc.value.trim() || "這物品平平無奇，看不出什麼來歷。" };
-            onAddItem(newItem);
-            UIElements.gmModal.style.display = 'none';
-            clearGMInputs();
-            addLog(`【GM】賜予物品：${newItem.name}`, '#e91e63');
-        });
+        UIElements.gmConfirmBtn.addEventListener('click', () => { const name = UIElements.gmInputs.name.value.trim(); if (!name) return alert("物品名稱不可為空"); const newItem = { id: Date.now(), name: name, icon: UIElements.gmInputs.icon.value.trim() || '📦', tags: UIElements.gmInputs.tags.value.split(/[,，]/).map(t => t.trim()).filter(t => t), description: UIElements.gmInputs.desc.value.trim() || "這物品平平無奇，看不出什麼來歷。" }; onAddItem(newItem); UIElements.gmModal.style.display = 'none'; clearGMInputs(); addLog(`【GM】賜予物品：${newItem.name}`, '#e91e63'); });
     }
     function clearGMInputs() { UIElements.gmInputs.name.value = ''; UIElements.gmInputs.icon.value = '📦'; UIElements.gmInputs.tags.value = ''; UIElements.gmInputs.desc.value = ''; }
 
-    // ... (保留 setupAITesting, setAITestingState, setupPlayerImageHandler, addLog, addStory, showFloatingExp) ...
     function setupAITesting(onTriggerAI) {
         let cachedKey = '';
         UIElements.testAIBtn.addEventListener('click', () => { if (cachedKey) { onTriggerAI(cachedKey); } else { UIElements.apiKeyModal.style.display = 'flex'; } });
         UIElements.apiCancelBtn.addEventListener('click', () => { UIElements.apiKeyModal.style.display = 'none'; });
         UIElements.apiConfirmBtn.addEventListener('click', () => { const key = UIElements.apiKeyInput.value.trim(); if (key) { cachedKey = key; UIElements.apiKeyModal.style.display = 'none'; onTriggerAI(cachedKey); } else { alert("請輸入 API Key"); } });
     }
-    function setAITestingState(isLoading) {
-        const btn = UIElements.testAIBtn;
-        if (isLoading) { btn.disabled = true; btn.textContent = "☁️ 天道推演中..."; btn.style.opacity = "0.6"; btn.style.cursor = "not-allowed"; } 
-        else { btn.disabled = false; btn.textContent = "🔮 測試 AI 天道"; btn.style.opacity = "1"; btn.style.cursor = "pointer"; }
-    }
+    function setAITestingState(isLoading) { const btn = UIElements.testAIBtn; if (isLoading) { btn.disabled = true; btn.textContent = "☁️ 天道推演中..."; btn.style.opacity = "0.6"; btn.style.cursor = "not-allowed"; } else { btn.disabled = false; btn.textContent = "🔮 測試 AI 天道"; btn.style.opacity = "1"; btn.style.cursor = "pointer"; } }
+
     function setupPlayerImageHandler(onImageChanged) {
         UIElements.playerImg.addEventListener('click', () => { UIElements.playerImgInput.click(); });
         UIElements.playerImgInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = function(event) { const base64String = event.target.result; updatePlayerImage(base64String); if (onImageChanged) onImageChanged(base64String); }; reader.readAsDataURL(file); } });
     }
     function updatePlayerImage(base64String) { if (base64String) { UIElements.playerImg.src = base64String; } }
-    function addLog(text, color = '#bbb') {
-        const p = document.createElement('p');
-        const time = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        p.innerHTML = `<span class="log-time">${time}</span> <span style="color: ${color}">${text}</span>`;
-        UIElements.narrativeLog.appendChild(p);
-        UIElements.narrativeLog.scrollTop = UIElements.narrativeLog.scrollHeight;
-        if (UIElements.narrativeLog.children.length > 50) UIElements.narrativeLog.removeChild(UIElements.narrativeLog.firstChild);
+    function addLog(text, color = '#bbb') { 
+        if (!UIElements.narrativeLog) return;
+        const p = document.createElement('p'); const time = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); p.innerHTML = `<span class="log-time">${time}</span> <span style="color: ${color}">${text}</span>`; UIElements.narrativeLog.appendChild(p); UIElements.narrativeLog.scrollTop = UIElements.narrativeLog.scrollHeight; if (UIElements.narrativeLog.children.length > 50) UIElements.narrativeLog.removeChild(UIElements.narrativeLog.firstChild); 
     }
-    function addStory(title, content, effect = null, color = '#ccc') {
-        const entry = document.createElement('div');
-        entry.className = 'story-entry';
-        const time = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
-        let html = `<div class="story-title"><span>${title}</span><span>${time}</span></div><div class="story-content" style="color: ${color}">${content}</div>`;
-        if (effect) { html += `<div class="story-effect">✨ ${effect}</div>`; }
-        entry.innerHTML = html;
-        if (title.includes("思考")) { entry.style.borderLeftColor = "#00bcd4"; } else { entry.style.borderLeftColor = color === '#f44336' ? '#f44336' : '#FFD700'; }
-        UIElements.storyLog.appendChild(entry);
-        UIElements.storyLog.scrollTop = UIElements.storyLog.scrollHeight;
-        if (UIElements.storyLog.children.length > 20) { UIElements.storyLog.removeChild(UIElements.storyLog.firstChild); }
-    }
-    function showFloatingExp(amount) {
-        const el = document.createElement('div');
-        el.className = 'exp-float';
-        el.textContent = `+${amount}`;
-        const x = 50 + (Math.random() - 0.5) * 20; const y = 40; el.style.left = `${x}%`; el.style.top = `${y}%`;
-        UIElements.visualArea.appendChild(el);
-        setTimeout(() => el.remove(), 1500);
+    function showFloatingExp(amount) { 
+        if (!UIElements.visualArea) return;
+        const el = document.createElement('div'); el.className = 'exp-float'; el.textContent = `+${amount}`; const x = 50 + (Math.random() - 0.5) * 20; const y = 40; el.style.left = `${x}%`; el.style.top = `${y}%`; UIElements.visualArea.appendChild(el); setTimeout(() => el.remove(), 1500); 
     }
 
     window.UIManager = {
         UIElements, translateWeatherCode, updateWeatherUI, updateCultivationUI, updateInventoryUI, setupGMTools, 
         setupAITesting, setAITestingState, setupPlayerImageHandler, updatePlayerImage, addLog, addStory, showFloatingExp,
-        setupPersonalityEditor, updatePersonalityUI // Export
+        setupPersonalityEditor, updatePersonalityUI,
+        startNewStoryRound, updateStoryContent,
+        setupStoryLengthSlider, getStoryLength // Export new functions
     };
 })(window);

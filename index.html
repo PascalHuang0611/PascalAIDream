@@ -65,20 +65,12 @@
         .meditating-img.active { animation: breathe 4s infinite ease-in-out; }
         @keyframes breathe { 0% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(0, 229, 255, 0.2)); } 50% { transform: scale(1.05); filter: drop-shadow(0 0 15px rgba(0, 229, 255, 0.5)); } 100% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(0, 229, 255, 0.2)); } }
         
+        .edit-hint { position: absolute; bottom: 10px; font-size: 12px; color: #666; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        #visual-area:hover .edit-hint { opacity: 1; }
         #cultivation-info { padding: 20px; text-align: center; background-color: #1e1e1e; z-index: 2; }
         #realm-name { font-size: 24px; font-weight: bold; color: #FFD700; margin: 0 0 10px 0; text-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
         
-        /* 新增：性格顯示列 */
-        #personality-row {
-            margin-top: 5px;
-            font-size: 13px;
-            color: #aaa;
-            cursor: pointer;
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 4px;
-            transition: background 0.2s;
-        }
+        #personality-row { margin-top: 5px; font-size: 13px; color: #aaa; cursor: pointer; display: inline-block; padding: 2px 8px; border-radius: 4px; transition: background 0.2s; }
         #personality-row:hover { background-color: #333; color: #fff; }
         #current-personality { color: #00bcd4; font-weight: bold; }
 
@@ -97,24 +89,42 @@
         #breakthrough-btn.ready { background: linear-gradient(135deg, #e53935 0%, #d32f2f 100%); color: white; cursor: pointer; box-shadow: 0 4px 10px rgba(211, 47, 47, 0.4); animation: pulse-red 2s infinite; }
         @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); } 100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); } }
         
-        /* --- 右側：天道劇本 --- */
-        #story-panel { width: 320px; height: 700px; border-color: #444; }
+        /* --- 右側：天道劇本 (Tab System) --- */
+        #story-panel { width: 320px; height: 700px; border-color: #444; display: flex; flex-direction: column; }
         #story-header { padding: 15px; background: linear-gradient(180deg, #2a1a2a 0%, #1e1e1e 100%); border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center; }
         #story-header h3 { margin: 0; font-size: 16px; color: #e91e63; }
-        #story-log { flex-grow: 1; padding: 15px; overflow-y: auto; font-size: 14px; line-height: 1.6; background-color: #1a1a1a; }
-        #story-controls { padding: 15px; background-color: #1e1e1e; border-top: 1px solid #333; }
-        .story-entry { margin-bottom: 20px; border-left: 2px solid #333; padding-left: 10px; animation: fadeIn 0.5s ease; }
-        .story-title { font-weight: bold; font-size: 12px; color: #666; margin-bottom: 5px; display: flex; justify-content: space-between; }
-        .story-content { color: #ccc; text-align: justify; }
-        .story-effect { margin-top: 8px; font-size: 12px; color: #FFD700; background: rgba(255, 215, 0, 0.1); padding: 4px 8px; border-radius: 4px; display: inline-block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        #test-ai-btn { width: 100%; background: linear-gradient(135deg, #9C27B0 0%, #E91E63 100%); color: white; box-shadow: 0 4px 10px rgba(233, 30, 99, 0.3); }
+
+        #story-tabs-container { display: flex; background: #151515; overflow-x: auto; border-bottom: 1px solid #444; scrollbar-width: none; }
+        #story-tabs-container::-webkit-scrollbar { display: none; }
+        .story-tab { padding: 10px 15px; background: #222; border-right: 1px solid #333; color: #888; cursor: pointer; font-size: 12px; white-space: nowrap; transition: all 0.2s; }
+        .story-tab:hover { background: #2a2a2a; color: #ccc; }
+        .story-tab.active { background: #1e1e1e; color: #e91e63; font-weight: bold; border-bottom: 2px solid #e91e63; }
+
+        #story-content-container { flex-grow: 1; padding: 15px; overflow-y: auto; font-size: 14px; line-height: 1.6; background-color: #1a1a1a; position: relative; }
+        .story-cycle-content { display: none; animation: fadeIn 0.3s ease; }
+        .story-cycle-content.active { display: block; }
+
+        .sc-section { margin-bottom: 15px; border-left: 2px solid #444; padding-left: 10px; }
+        .sc-title { font-size: 11px; color: #666; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+        .sc-text { color: #ddd; }
+        .sc-actor-text { color: #aaa; font-style: italic; }
+        .sc-effect { margin-top: 5px; font-size: 12px; color: #FFD700; background: rgba(255, 215, 0, 0.1); padding: 4px 8px; border-radius: 4px; display: inline-block; }
+        .loading-dots::after { content: '.'; animation: dots 1.5s steps(5, end) infinite; }
+        @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60% { content: '...'; } 80%, 100% { content: ''; } }
+
+        /* 右側面板底部的控制區 (新增長度控制) */
+        #story-controls { padding: 15px; background-color: #1e1e1e; border-top: 1px solid #333; display: flex; flex-direction: column; gap: 10px; }
+        
+        .length-control { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #888; }
+        .length-slider { flex-grow: 1; margin: 0 10px; cursor: pointer; accent-color: #e91e63; }
+        #story-len-val { width: 30px; text-align: right; color: #e91e63; font-weight: bold; }
+
+        #test-ai-btn { width: 100%; background: linear-gradient(135deg, #9C27B0 0%, #E91E63 100%); color: white; box-shadow: 0 4px 10px rgba(233, 30, 99, 0.3); border: none; border-radius: 6px; padding: 12px; font-weight: bold; cursor: pointer; transition: all 0.2s; font-size: 14px; }
         #settings-btn { flex: 0 0 40px; background: #333; color: #aaa; }
         
         .exp-float { position: absolute; color: #FFD700; font-weight: bold; font-size: 18px; pointer-events: none; animation: float-up 1.2s forwards; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 5px rgba(0,0,0,0.8); z-index: 100; user-select: none; }
         @keyframes float-up { 0% { opacity: 1; transform: translateY(0) scale(1); } 50% { opacity: 1; transform: translateY(-30px) scale(1.1); } 100% { opacity: 0; transform: translateY(-60px) scale(0.9); } }
         
-        /* Modals */
         #gm-modal, #api-key-modal, #personality-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
         .modal-content { background: #222; padding: 20px; border-radius: 10px; width: 300px; border: 1px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
         .modal-content h3 { margin-top: 0; color: #e91e63; }
@@ -125,14 +135,15 @@
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px; }
         .btn-cancel { background: transparent; border: 1px solid #555; color: #aaa; }
         .btn-confirm { background: #e91e63; border: none; color: white; }
-
-        /* 性格標籤樣式 */
         #preset-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
         .preset-tag { font-size: 11px; background: #333; border: 1px solid #555; color: #ccc; padding: 4px 8px; border-radius: 12px; cursor: pointer; transition: all 0.2s; }
         .preset-tag:hover { background: #00bcd4; color: #000; border-color: #00bcd4; }
-
         .rate-tooltip { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); padding: 8px; border-radius: 4px; font-size: 12px; pointer-events: none; display: none; z-index: 110; white-space: nowrap; border: 1px solid #444; }
         #visual-area:hover .rate-tooltip { display: block; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #181818; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
     </style>
 </head>
 <body>
@@ -147,7 +158,7 @@
             <div id="inventory-grid"></div>
         </div>
 
-        <!-- 物品 Tooltip -->
+        <!-- Tooltip -->
         <div id="item-tooltip" class="item-tooltip">
             <div class="tooltip-title"></div>
             <div class="tooltip-tags"></div>
@@ -173,17 +184,9 @@
 
             <div id="cultivation-info">
                 <h2 id="realm-name">煉氣期 前期</h2>
-                
-                <!-- 新增：性格顯示與編輯 -->
-                <div id="personality-row" title="點擊修改性格">
-                    性格: <span id="current-personality">普通人</span> ✏️
-                </div>
-
+                <div id="personality-row" title="點擊修改性格">性格: <span id="current-personality">普通人</span> ✏️</div>
                 <div class="progress-container"><div id="exp-bar" class="progress-bar"></div></div>
-                <div class="stats-text">
-                    <span>修為: <span id="exp-current">0</span> / <span id="exp-max">100</span></span>
-                    <span>速度: <span id="exp-rate">1.0</span> /秒</span>
-                </div>
+                <div class="stats-text"><span>修為: <span id="exp-current">0</span> / <span id="exp-max">100</span></span><span>速度: <span id="exp-rate">1.0</span> /秒</span></div>
             </div>
 
             <div id="narrative-log"><p><span class="log-time">12:00</span> 系統啟動，開始感應天地靈氣...</p></div>
@@ -194,76 +197,37 @@
             </div>
         </div>
 
-        <!-- 右側：天道劇本 -->
+        <!-- 右側：天道劇本 (輪迴頁籤版) -->
         <div id="story-panel" class="panel">
             <div id="story-header">
                 <h3>📜 天道劇本</h3>
             </div>
-            <div id="story-log">
-                <div class="story-entry">
-                    <div class="story-title">天道記錄</div>
-                    <div class="story-content">尚未連結天道，請點擊下方按鈕進行測試...</div>
+            
+            <div id="story-tabs-container"></div>
+
+            <div id="story-content-container">
+                <div style="color: #666; text-align: center; margin-top: 50px;">
+                    點擊下方按鈕開始推演
                 </div>
             </div>
+
+            <!-- 新增：字數控制與按鈕 -->
             <div id="story-controls">
+                <div class="length-control">
+                    <span>簡短</span>
+                    <input type="range" id="story-length-slider" min="50" max="500" value="100" step="10" class="length-slider">
+                    <span>詳盡</span>
+                    <span id="story-len-val">100</span>字
+                </div>
                 <button id="test-ai-btn">🔮 測試 AI 天道</button>
             </div>
         </div>
     </div>
 
-    <!-- GM Modal -->
-    <div id="gm-modal">
-        <div class="modal-content">
-            <h3>🌩️ 天道賜物 (GM)</h3>
-            <div class="form-group"><label>物品名稱</label><input type="text" id="gm-item-name"></div>
-            <div class="form-group"><label>圖示</label><input type="text" id="gm-item-icon" value="📦"></div>
-            <div class="form-group"><label>標籤</label><input type="text" id="gm-item-tags"></div>
-            <div class="form-group"><label>描述</label><textarea id="gm-item-desc"></textarea></div>
-            <div class="modal-actions">
-                <button class="btn-cancel" id="gm-cancel-btn">取消</button>
-                <button class="btn-confirm" id="gm-confirm-btn">賜予</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 新增：性格編輯 Modal -->
-    <div id="personality-modal">
-        <div class="modal-content">
-            <h3>🧠 修改本性</h3>
-            <div class="form-group">
-                <label>自訂性格 (描述越生動越好)</label>
-                <input type="text" id="personality-input" placeholder="例如：膽小如鼠但運氣極好">
-            </div>
-            <div class="form-group">
-                <label>或選擇預設性格：</label>
-                <div id="preset-tags">
-                    <!-- JS 動態生成 -->
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button class="btn-cancel" id="pers-cancel-btn">取消</button>
-                <button class="btn-confirm" id="pers-confirm-btn">確認修改</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- API Key Modal -->
-    <div id="api-key-modal">
-        <div class="modal-content">
-            <h3>🔑 設定 Gemini API</h3>
-            <div class="form-group">
-                <label>請輸入 Google Gemini API Key</label>
-                <input type="password" id="gemini-api-key" placeholder="AIzaSy...">
-            </div>
-            <div class="form-group">
-                <label style="color: #666; font-size: 11px;">Key 僅暫存於記憶體，重新整理後需重填。</label>
-            </div>
-            <div class="modal-actions">
-                <button class="btn-cancel" id="api-cancel-btn">取消</button>
-                <button class="btn-confirm" id="api-confirm-btn">確認</button>
-            </div>
-        </div>
-    </div>
+    <!-- Modals -->
+    <div id="gm-modal"><div class="modal-content"><h3>🌩️ 天道賜物 (GM)</h3><div class="form-group"><label>物品名稱</label><input type="text" id="gm-item-name"></div><div class="form-group"><label>圖示</label><input type="text" id="gm-item-icon" value="📦"></div><div class="form-group"><label>標籤</label><input type="text" id="gm-item-tags"></div><div class="form-group"><label>描述</label><textarea id="gm-item-desc"></textarea></div><div class="modal-actions"><button class="btn-cancel" id="gm-cancel-btn">取消</button><button class="btn-confirm" id="gm-confirm-btn">賜予</button></div></div></div>
+    <div id="personality-modal"><div class="modal-content"><h3>🧠 修改本性</h3><div class="form-group"><label>自訂性格</label><input type="text" id="personality-input"></div><div class="form-group"><label>或選擇預設：</label><div id="preset-tags"></div></div><div class="modal-actions"><button class="btn-cancel" id="pers-cancel-btn">取消</button><button class="btn-confirm" id="pers-confirm-btn">確認</button></div></div></div>
+    <div id="api-key-modal"><div class="modal-content"><h3>🔑 設定 Gemini API</h3><div class="form-group"><label>API Key</label><input type="password" id="gemini-api-key"></div><div class="modal-actions"><button class="btn-cancel" id="api-cancel-btn">取消</button><button class="btn-confirm" id="api-confirm-btn">確認</button></div></div></div>
 
     <script src="game_settings.js"></script>
     <script src="ui_manager.js"></script>
